@@ -1066,10 +1066,39 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         CURRENT_TIMESTAMP AS agora,
         date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
         (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months')::date AS inicio_12_meses,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '30 days')::date AS inicio_30_dias,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '60 days')::date AS limite_inativo,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '365 days')::date AS limite_base_antiga,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_retorno
+    ),
+    meses_periodo AS (
+      SELECT generate_series(
+        (SELECT inicio_12_meses FROM periodo),
+        (SELECT inicio_mes FROM periodo),
+        INTERVAL '1 month'
+      )::date AS mes_inicio
+    ),
+    meses_rotulados AS (
+      SELECT
+        mes_inicio,
+        (mes_inicio + INTERVAL '1 month')::date AS mes_fim,
+        to_char(mes_inicio, 'YYYY-MM') AS mes,
+        CASE EXTRACT(MONTH FROM mes_inicio)::int
+          WHEN 1 THEN 'Jan'
+          WHEN 2 THEN 'Fev'
+          WHEN 3 THEN 'Mar'
+          WHEN 4 THEN 'Abr'
+          WHEN 5 THEN 'Mai'
+          WHEN 6 THEN 'Jun'
+          WHEN 7 THEN 'Jul'
+          WHEN 8 THEN 'Ago'
+          WHEN 9 THEN 'Set'
+          WHEN 10 THEN 'Out'
+          WHEN 11 THEN 'Nov'
+          ELSE 'Dez'
+        END || '/' || EXTRACT(YEAR FROM mes_inicio)::int AS label
+      FROM meses_periodo
     ),
     status_classificado AS (
       SELECT
@@ -1240,6 +1269,259 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       FROM agendamentos_validos
       WHERE agend_data >= (SELECT inicio_mes FROM periodo)
         AND agend_data < (SELECT fim_mes FROM periodo)
+    ),
+    primeiro_agendamento_cliente AS (
+      SELECT
+        clientes_id,
+        MIN(agend_data) AS primeiro_agendamento
+      FROM agendamentos_validos
+      GROUP BY clientes_id
+    ),
+    novos_clientes_por_mes AS (
+      SELECT
+        mr.mes,
+        mr.label,
+        COUNT(DISTINCT cb.clientes_id) AS clientes_novos
+      FROM meses_rotulados mr
+      LEFT JOIN clientes_base cb
+        ON (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_inicio
+        AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_fim
+      GROUP BY mr.mes, mr.label, mr.mes_inicio
+      ORDER BY mr.mes_inicio
+    ),
+    clientes_ativos_por_mes AS (
+      SELECT
+        mr.mes_inicio,
+        mr.mes,
+        mr.label,
+        av.clientes_id,
+        COUNT(DISTINCT av.agend_id) AS agendamentos_mes,
+        COALESCE(SUM(av.valor_total), 0)::numeric AS receita_mes
+      FROM meses_rotulados mr
+      LEFT JOIN agendamentos_validos av
+        ON av.agend_data >= mr.mes_inicio
+        AND av.agend_data < mr.mes_fim
+      GROUP BY mr.mes_inicio, mr.mes, mr.label, av.clientes_id
+    ),
+    novos_vs_recorrentes AS (
+      SELECT
+        mr.mes,
+        mr.label,
+        (
+          SELECT COUNT(DISTINCT cb.clientes_id)
+          FROM clientes_base cb
+          WHERE (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_inicio
+            AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_fim
+        ) AS novos,
+        (
+          SELECT COUNT(DISTINCT av.clientes_id)
+          FROM agendamentos_validos av
+          WHERE av.agend_data >= mr.mes_inicio
+            AND av.agend_data < mr.mes_fim
+            AND EXISTS (
+              SELECT 1
+              FROM agendamentos_validos av_ant
+              WHERE av_ant.clientes_id = av.clientes_id
+                AND av_ant.agend_data < mr.mes_inicio
+            )
+        ) AS recorrentes
+      FROM meses_rotulados mr
+      ORDER BY mr.mes_inicio
+    ),
+    frequencia_cliente AS (
+      SELECT
+        cb.clientes_id,
+        COUNT(DISTINCT av.agend_id) AS total_agendamentos
+      FROM clientes_base cb
+      JOIN agendamentos_validos av ON av.clientes_id = cb.clientes_id
+      GROUP BY cb.clientes_id
+    ),
+    faixas_frequencia(ordem, faixa) AS (
+      VALUES
+        (1, '1 agendamento'),
+        (2, '2 agendamentos'),
+        (3, '3 a 5 agendamentos'),
+        (4, '6 a 10 agendamentos'),
+        (5, 'Mais de 10 agendamentos')
+    ),
+    clientes_por_frequencia AS (
+      SELECT
+        ff.ordem,
+        ff.faixa,
+        COUNT(fc.clientes_id) FILTER (
+          WHERE CASE ff.ordem
+            WHEN 1 THEN fc.total_agendamentos = 1
+            WHEN 2 THEN fc.total_agendamentos = 2
+            WHEN 3 THEN fc.total_agendamentos BETWEEN 3 AND 5
+            WHEN 4 THEN fc.total_agendamentos BETWEEN 6 AND 10
+            ELSE fc.total_agendamentos > 10
+          END
+        ) AS clientes
+      FROM faixas_frequencia ff
+      LEFT JOIN frequencia_cliente fc ON true
+      GROUP BY ff.ordem, ff.faixa
+      ORDER BY ff.ordem
+    ),
+    receita_por_perfil_cliente AS (
+      SELECT
+        perfil,
+        COALESCE(SUM(receita), 0)::numeric AS receita,
+        COUNT(DISTINCT clientes_id) AS clientes
+      FROM (
+        SELECT
+          cm.clientes_id,
+          CASE
+            WHEN pac.primeiro_agendamento >= (SELECT inicio_mes FROM periodo)
+              AND pac.primeiro_agendamento < (SELECT fim_mes FROM periodo)
+              THEN 'Novo'
+            ELSE 'Recorrente'
+          END AS perfil,
+          cm.receita_total AS receita
+        FROM clientes_mes cm
+        JOIN primeiro_agendamento_cliente pac ON pac.clientes_id = cm.clientes_id
+      ) perfis
+      GROUP BY perfil
+    ),
+    perfis_cliente(perfil, ordem) AS (
+      VALUES
+        ('Novo', 1),
+        ('Recorrente', 2)
+    ),
+    receita_por_perfil_final AS (
+      SELECT
+        pc.perfil,
+        COALESCE(rpp.receita, 0)::numeric AS receita,
+        COALESCE(rpp.clientes, 0) AS clientes,
+        pc.ordem
+      FROM perfis_cliente pc
+      LEFT JOIN receita_por_perfil_cliente rpp ON rpp.perfil = pc.perfil
+      ORDER BY pc.ordem
+    ),
+    retencao_mensal AS (
+      SELECT
+        mr.mes,
+        mr.label,
+        COUNT(DISTINCT capm.clientes_id) FILTER (WHERE capm.clientes_id IS NOT NULL) AS clientes_ativos,
+        COUNT(DISTINCT capm.clientes_id) FILTER (
+          WHERE capm.clientes_id IS NOT NULL
+            AND EXISTS (
+              SELECT 1
+              FROM agendamentos_validos av_ant
+              WHERE av_ant.clientes_id = capm.clientes_id
+                AND av_ant.agend_data < mr.mes_inicio
+            )
+        ) AS clientes_retornaram
+      FROM meses_rotulados mr
+      LEFT JOIN clientes_ativos_por_mes capm
+        ON capm.mes_inicio = mr.mes_inicio
+        AND capm.clientes_id IS NOT NULL
+      GROUP BY mr.mes, mr.label, mr.mes_inicio
+      ORDER BY mr.mes_inicio
+    ),
+    clientes_resumo_mes AS (
+      SELECT
+        cb.clientes_id,
+        cb.clientes_nome,
+        cb.clientes_telefone,
+        CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN e.empresa_nome ELSE NULL END AS empresa_nome,
+        COUNT(DISTINCT av.agend_id) AS quantidade_agendamentos,
+        COALESCE(SUM(av.valor_total), 0)::numeric AS receita_total,
+        MAX(av.agend_data) AS ultimo_agendamento
+      FROM clientes_base cb
+      JOIN empresa e ON e.empresa_id = cb.empresa_id
+      JOIN agendamentos_validos av ON av.clientes_id = cb.clientes_id
+      WHERE av.agend_data >= (SELECT inicio_mes FROM periodo)
+        AND av.agend_data < (SELECT fim_mes FROM periodo)
+      GROUP BY
+        cb.clientes_id,
+        cb.clientes_nome,
+        cb.clientes_telefone,
+        e.empresa_nome
+    ),
+    top_clientes_receita AS (
+      SELECT *
+      FROM clientes_resumo_mes
+      ORDER BY receita_total DESC, quantidade_agendamentos DESC, ultimo_agendamento DESC, clientes_nome
+      LIMIT 10
+    ),
+    top_clientes_agendamentos AS (
+      SELECT *
+      FROM clientes_resumo_mes
+      ORDER BY quantidade_agendamentos DESC, receita_total DESC, ultimo_agendamento DESC, clientes_nome
+      LIMIT 10
+    ),
+    clientes_resumo_historico AS (
+      SELECT
+        cb.clientes_id,
+        cb.clientes_nome,
+        cb.clientes_telefone,
+        cb.clientes_dt_criacao,
+        CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN e.empresa_nome ELSE NULL END AS empresa_nome,
+        COUNT(DISTINCT avp.agend_id) AS total_agendamentos,
+        COALESCE(SUM(avp.valor_total), 0)::numeric AS receita_historica,
+        MIN(avp.agend_data) AS primeiro_agendamento,
+        MAX(avp.agend_data) AS ultimo_agendamento
+      FROM clientes_base cb
+      JOIN empresa e ON e.empresa_id = cb.empresa_id
+      LEFT JOIN agendamentos_validos_passados avp ON avp.clientes_id = cb.clientes_id
+      GROUP BY
+        cb.clientes_id,
+        cb.clientes_nome,
+        cb.clientes_telefone,
+        cb.clientes_dt_criacao,
+        e.empresa_nome
+    ),
+    clientes_inativos_tabela AS (
+      SELECT
+        crh.clientes_id,
+        crh.clientes_nome,
+        crh.clientes_telefone,
+        crh.empresa_nome,
+        ci.ultimo_agendamento,
+        ((SELECT hoje FROM periodo) - ci.ultimo_agendamento)::int AS dias_sem_agendar,
+        ci.total_agendamentos,
+        ci.receita_historica
+      FROM clientes_inativos ci
+      JOIN clientes_resumo_historico crh ON crh.clientes_id = ci.clientes_id
+      ORDER BY ci.receita_historica DESC, ((SELECT hoje FROM periodo) - ci.ultimo_agendamento)::int DESC, crh.clientes_nome
+      LIMIT 20
+    ),
+    clientes_retorno_provavel_tabela AS (
+      SELECT
+        crh.clientes_id,
+        crh.clientes_nome,
+        crh.clientes_telefone,
+        crh.empresa_nome,
+        rp.ultimo_agendamento,
+        rp.media_intervalo_dias,
+        rp.data_prevista,
+        CASE
+          WHEN rp.data_prevista < (SELECT hoje FROM periodo) THEN 'Atrasado'
+          ELSE 'Previsto'
+        END AS status_retorno
+      FROM clientes_retorno_previsto rp
+      JOIN clientes_resumo_historico crh ON crh.clientes_id = rp.clientes_id
+      ORDER BY
+        CASE WHEN rp.data_prevista < (SELECT hoje FROM periodo) THEN 0 ELSE 1 END,
+        rp.data_prevista,
+        crh.clientes_nome
+      LIMIT 20
+    ),
+    ultimos_clientes AS (
+      SELECT
+        crh.clientes_id,
+        crh.clientes_nome,
+        crh.clientes_telefone,
+        crh.empresa_nome,
+        (crh.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date AS data_cadastro,
+        crh.primeiro_agendamento,
+        crh.total_agendamentos
+      FROM clientes_resumo_historico crh
+      ORDER BY
+        (crh.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date DESC NULLS LAST,
+        crh.primeiro_agendamento DESC NULLS LAST,
+        crh.clientes_nome
+      LIMIT 20
     )
     SELECT
       COUNT(DISTINCT cb.clientes_id) FILTER (
@@ -1260,7 +1542,147 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         ELSE 0
       END AS agendamentos_medios_por_cliente,
       rr.total AS receita_clientes_recorrentes,
-      (SELECT COUNT(*) FROM clientes_retorno_previsto) AS clientes_com_retorno_previsto
+      (SELECT COUNT(*) FROM clientes_retorno_previsto) AS clientes_com_retorno_previsto,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'mes', ncpm.mes,
+            'label', ncpm.label,
+            'clientesNovos', ncpm.clientes_novos
+          )
+          ORDER BY ncpm.mes
+        )
+        FROM novos_clientes_por_mes ncpm
+      ), '[]'::json) AS novos_clientes_por_mes,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'mes', nvr.mes,
+            'label', nvr.label,
+            'novos', nvr.novos,
+            'recorrentes', nvr.recorrentes
+          )
+          ORDER BY nvr.mes
+        )
+        FROM novos_vs_recorrentes nvr
+      ), '[]'::json) AS novos_vs_recorrentes,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'faixa', cpf.faixa,
+            'clientes', cpf.clientes
+          )
+          ORDER BY cpf.ordem
+        )
+        FROM clientes_por_frequencia cpf
+      ), '[]'::json) AS clientes_por_frequencia,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'perfil', rppf.perfil,
+            'receita', rppf.receita,
+            'clientes', rppf.clientes
+          )
+          ORDER BY rppf.ordem
+        )
+        FROM receita_por_perfil_final rppf
+      ), '[]'::json) AS receita_por_perfil_cliente,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'mes', rm.mes,
+            'label', rm.label,
+            'clientesAtivos', rm.clientes_ativos,
+            'clientesRetornaram', rm.clientes_retornaram,
+            'taxaRetencao', CASE
+              WHEN rm.clientes_ativos > 0
+                THEN ROUND((rm.clientes_retornaram::numeric / rm.clientes_ativos::numeric) * 100, 1)
+              ELSE NULL
+            END
+          )
+          ORDER BY rm.mes
+        )
+        FROM retencao_mensal rm
+      ), '[]'::json) AS retencao_mensal,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'clienteId', tcr.clientes_id,
+            'cliente', tcr.clientes_nome,
+            'telefone', tcr.clientes_telefone,
+            'receitaTotal', tcr.receita_total,
+            'quantidadeAgendamentos', tcr.quantidade_agendamentos,
+            'ultimoAgendamento', tcr.ultimo_agendamento,
+            'empresa', tcr.empresa_nome
+          )
+          ORDER BY tcr.receita_total DESC, tcr.quantidade_agendamentos DESC, tcr.ultimo_agendamento DESC
+        )
+        FROM top_clientes_receita tcr
+      ), '[]'::json) AS top_clientes_receita,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'clienteId', tca.clientes_id,
+            'cliente', tca.clientes_nome,
+            'telefone', tca.clientes_telefone,
+            'quantidadeAgendamentos', tca.quantidade_agendamentos,
+            'receitaTotal', tca.receita_total,
+            'ultimoAgendamento', tca.ultimo_agendamento,
+            'empresa', tca.empresa_nome
+          )
+          ORDER BY tca.quantidade_agendamentos DESC, tca.receita_total DESC, tca.ultimo_agendamento DESC
+        )
+        FROM top_clientes_agendamentos tca
+      ), '[]'::json) AS top_clientes_agendamentos,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'clienteId', cit.clientes_id,
+            'cliente', cit.clientes_nome,
+            'telefone', cit.clientes_telefone,
+            'ultimoAgendamento', cit.ultimo_agendamento,
+            'diasSemAgendar', cit.dias_sem_agendar,
+            'totalAgendamentos', cit.total_agendamentos,
+            'receitaHistorica', cit.receita_historica,
+            'empresa', cit.empresa_nome
+          )
+          ORDER BY cit.receita_historica DESC, cit.dias_sem_agendar DESC
+        )
+        FROM clientes_inativos_tabela cit
+      ), '[]'::json) AS clientes_inativos_tabela,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'clienteId', crpt.clientes_id,
+            'cliente', crpt.clientes_nome,
+            'telefone', crpt.clientes_telefone,
+            'ultimoAgendamento', crpt.ultimo_agendamento,
+            'mediaDiasEntreAgendamentos', crpt.media_intervalo_dias,
+            'retornoPrevisto', crpt.data_prevista,
+            'status', crpt.status_retorno,
+            'empresa', crpt.empresa_nome
+          )
+          ORDER BY
+            CASE WHEN crpt.status_retorno = 'Atrasado' THEN 0 ELSE 1 END,
+            crpt.data_prevista
+        )
+        FROM clientes_retorno_provavel_tabela crpt
+      ), '[]'::json) AS clientes_retorno_provavel,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'clienteId', uc.clientes_id,
+            'cliente', uc.clientes_nome,
+            'telefone', uc.clientes_telefone,
+            'dataCadastro', uc.data_cadastro,
+            'primeiroAgendamento', uc.primeiro_agendamento,
+            'totalAgendamentos', uc.total_agendamentos,
+            'empresa', uc.empresa_nome
+          )
+          ORDER BY uc.data_cadastro DESC NULLS LAST, uc.primeiro_agendamento DESC NULLS LAST
+        )
+        FROM ultimos_clientes uc
+      ), '[]'::json) AS ultimos_clientes
     FROM clientes_base cb
     CROSS JOIN totais_mes tm
     CROSS JOIN receita_recorrentes rr
@@ -1283,6 +1705,20 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       agendamentosMediosPorCliente: toNumber(row.agendamentos_medios_por_cliente),
       receitaClientesRecorrentes: toNumber(row.receita_clientes_recorrentes),
       clientesComRetornoPrevisto: toInt(row.clientes_com_retorno_previsto),
+    },
+    graficos: {
+      novosClientesPorMes: row.novos_clientes_por_mes || [],
+      novosVsRecorrentes: row.novos_vs_recorrentes || [],
+      clientesPorFrequencia: row.clientes_por_frequencia || [],
+      receitaPorPerfilCliente: row.receita_por_perfil_cliente || [],
+      retencaoMensal: row.retencao_mensal || [],
+    },
+    tabelas: {
+      topClientesReceita: row.top_clientes_receita || [],
+      topClientesAgendamentos: row.top_clientes_agendamentos || [],
+      clientesInativos: row.clientes_inativos_tabela || [],
+      clientesRetornoProvavel: row.clientes_retorno_provavel || [],
+      ultimosClientes: row.ultimos_clientes || [],
     },
   }
 }
