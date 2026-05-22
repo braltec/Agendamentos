@@ -43,6 +43,14 @@ const EMPTY_DATA = {
     agendamentosPorFaixaHorario: [],
     horariosMaisProcurados: [],
   },
+  tabelas: {
+    agendaHoje: [],
+    proximosHorariosLivres: [],
+    janelasOciosasHoje: [],
+    profissionaisSemAgendamentoHoje: [],
+    diasMaiorOcupacao: [],
+    diasMenorOcupacao: [],
+  },
 }
 
 const chartColors = {
@@ -65,6 +73,15 @@ function formatPercent(value) {
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('pt-BR')
+}
+
+function formatDate(value) {
+  if (!value) return ''
+
+  const [year, month, day] = String(value).slice(0, 10).split('-')
+  if (!year || !month || !day) return String(value)
+
+  return `${day}/${month}/${year}`
 }
 
 function formatDurationFromHours(value) {
@@ -154,6 +171,87 @@ function ChartCard({ title, description, loading, isEmpty, emptyMessage, emptyIc
         )}
       </CardBody>
     </Card>
+  )
+}
+
+function TableCard({ title, description, loading, isEmpty, emptyMessage, emptyIcon: EmptyIcon, children }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          {description && <p className="text-sm text-gray-500">{description}</p>}
+        </div>
+      </CardHeader>
+      <CardBody>
+        {loading ? (
+          <LoadingState />
+        ) : isEmpty ? (
+          <EmptyState icon={EmptyIcon}>{emptyMessage}</EmptyState>
+        ) : (
+          <div className="overflow-x-auto">{children}</div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function StatusBadge({ status, cancelado = false }) {
+  const normalized = String(status || '').toLowerCase()
+  const isCanceled = cancelado || normalized.includes('cancel')
+  const isConfirmed = normalized.includes('confirm')
+  const isScheduled = normalized.includes('agend')
+
+  const className = isCanceled
+    ? 'bg-red-50 text-red-700'
+    : isConfirmed
+      ? 'bg-green-50 text-green-700'
+      : isScheduled
+        ? 'bg-blue-50 text-blue-700'
+        : 'bg-gray-100 text-gray-700'
+
+  return (
+    <span className={`inline-flex w-fit whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${className}`}>
+      {status || 'Sem status'}
+    </span>
+  )
+}
+
+function hasEmpresa(rows) {
+  return rows.some((row) => row.empresa)
+}
+
+function OcupacaoDiasTable({ rows }) {
+  return (
+    <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <thead>
+        <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+          <th className="px-3 py-2 font-semibold">Data</th>
+          <th className="px-3 py-2 font-semibold">Ocupação</th>
+          <th className="px-3 py-2 font-semibold">Horas</th>
+          <th className="px-3 py-2 font-semibold">Agend.</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {rows.map((dia) => (
+          <tr key={`${dia.data}-${dia.diaSemana}`} className="align-top">
+            <td className="px-3 py-3">
+              <p className="font-medium text-gray-900">{formatDate(dia.data)}</p>
+              <p className="text-xs text-gray-500">{dia.diaSemana}</p>
+            </td>
+            <td className="px-3 py-3 font-semibold text-gray-900">
+              {formatPercent(dia.ocupacaoPercentual)}
+            </td>
+            <td className="px-3 py-3 text-gray-600">
+              {formatDurationFromMinutes(dia.minutosOcupados)}
+              <span className="text-gray-400"> / </span>
+              {formatDurationFromMinutes(dia.minutosDisponiveis)}
+            </td>
+            <td className="px-3 py-3 text-gray-600">{formatNumber(dia.totalAgendamentos)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -284,6 +382,39 @@ export default function AgendaDisponibilidade() {
     (item) => item.agendamentos > 0 || item.cancelamentos > 0,
   )
   const temHorariosProcurados = horariosMaisProcurados.length > 0
+  const tabelas = agendaData?.tabelas || EMPTY_DATA.tabelas
+  const agendaHoje = tabelas.agendaHoje || []
+  const proximosHorariosLivres = (tabelas.proximosHorariosLivres || []).map((item) => ({
+    ...item,
+    duracaoMin: Number(item.duracaoMin || 0),
+  }))
+  const janelasOciosasHoje = (tabelas.janelasOciosasHoje || []).map((item) => ({
+    ...item,
+    duracaoMin: Number(item.duracaoMin || 0),
+  }))
+  const profissionaisSemAgendamentoHoje = tabelas.profissionaisSemAgendamentoHoje || []
+  const diasMaiorOcupacao = (tabelas.diasMaiorOcupacao || []).map((item) => ({
+    ...item,
+    ocupacaoPercentual: item.ocupacaoPercentual === null || item.ocupacaoPercentual === undefined
+      ? null
+      : Number(item.ocupacaoPercentual),
+    minutosOcupados: Number(item.minutosOcupados || 0),
+    minutosDisponiveis: Number(item.minutosDisponiveis || 0),
+    totalAgendamentos: Number(item.totalAgendamentos || 0),
+  }))
+  const diasMenorOcupacao = (tabelas.diasMenorOcupacao || []).map((item) => ({
+    ...item,
+    ocupacaoPercentual: item.ocupacaoPercentual === null || item.ocupacaoPercentual === undefined
+      ? null
+      : Number(item.ocupacaoPercentual),
+    minutosOcupados: Number(item.minutosOcupados || 0),
+    minutosDisponiveis: Number(item.minutosDisponiveis || 0),
+    totalAgendamentos: Number(item.totalAgendamentos || 0),
+  }))
+  const mostraEmpresaAgendaHoje = hasEmpresa(agendaHoje)
+  const mostraEmpresaHorariosLivres = hasEmpresa(proximosHorariosLivres)
+  const mostraEmpresaJanelas = hasEmpresa(janelasOciosasHoje)
+  const mostraEmpresaProfissionais = hasEmpresa(profissionaisSemAgendamentoHoje)
 
   return (
     <div className="space-y-6">
@@ -517,6 +648,189 @@ export default function AgendaDisponibilidade() {
             </ResponsiveContainer>
           </div>
         </ChartCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <TableCard
+          title="Agenda de Hoje"
+          description="Agendamentos agrupados por compromisso"
+          loading={loading}
+          isEmpty={agendaHoje.length === 0}
+          emptyMessage="Nenhum agendamento encontrado para hoje."
+          emptyIcon={Calendar}
+        >
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2 font-semibold">Horário</th>
+                <th className="px-3 py-2 font-semibold">Cliente</th>
+                <th className="px-3 py-2 font-semibold">Serviço</th>
+                <th className="px-3 py-2 font-semibold">Profissional</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                {mostraEmpresaAgendaHoje && <th className="px-3 py-2 font-semibold">Empresa</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {agendaHoje.map((agendamento) => (
+                <tr
+                  key={agendamento.agendId}
+                  className={`align-top ${agendamento.cancelado ? 'bg-red-50/40' : ''}`}
+                >
+                  <td className="whitespace-nowrap px-3 py-3 font-medium text-gray-900">
+                    {agendamento.inicio || '--:--'} - {agendamento.fim || '--:--'}
+                  </td>
+                  <td className="px-3 py-3 text-gray-700">{agendamento.cliente || 'Cliente não informado'}</td>
+                  <td className="px-3 py-3 text-gray-600">{agendamento.servico || 'Serviço não informado'}</td>
+                  <td className="px-3 py-3 text-gray-700">{agendamento.profissional || 'Profissional não informado'}</td>
+                  <td className="px-3 py-3">
+                    <StatusBadge status={agendamento.status} cancelado={agendamento.cancelado} />
+                  </td>
+                  {mostraEmpresaAgendaHoje && (
+                    <td className="px-3 py-3 text-gray-600">{agendamento.empresa}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+
+        <TableCard
+          title="Próximos Horários Livres"
+          description="Próximas janelas disponíveis"
+          loading={loading}
+          isEmpty={proximosHorariosLivres.length === 0}
+          emptyMessage="Nenhum horário livre encontrado."
+          emptyIcon={Clock}
+        >
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2 font-semibold">Data</th>
+                <th className="px-3 py-2 font-semibold">Horário</th>
+                <th className="px-3 py-2 font-semibold">Duração</th>
+                <th className="px-3 py-2 font-semibold">Profissional</th>
+                {mostraEmpresaHorariosLivres && <th className="px-3 py-2 font-semibold">Empresa</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {proximosHorariosLivres.map((horario) => (
+                <tr key={`${horario.data}-${horario.inicio}-${horario.profissional}`} className="align-top">
+                  <td className="whitespace-nowrap px-3 py-3 font-medium text-gray-900">
+                    {formatDate(horario.data)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-gray-700">
+                    {horario.inicio || '--:--'} - {horario.fim || '--:--'}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-gray-600">
+                    {formatDurationFromMinutes(horario.duracaoMin)}
+                  </td>
+                  <td className="px-3 py-3 text-gray-700">{horario.profissional}</td>
+                  {mostraEmpresaHorariosLivres && (
+                    <td className="px-3 py-3 text-gray-600">{horario.empresa}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <TableCard
+          title="Janelas Ociosas do Dia"
+          description="Janelas livres relevantes de hoje"
+          loading={loading}
+          isEmpty={janelasOciosasHoje.length === 0}
+          emptyMessage="Não há janelas ociosas relevantes hoje."
+          emptyIcon={Activity}
+        >
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2 font-semibold">Profissional</th>
+                <th className="px-3 py-2 font-semibold">Janela</th>
+                <th className="px-3 py-2 font-semibold">Duração</th>
+                {mostraEmpresaJanelas && <th className="px-3 py-2 font-semibold">Empresa</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {janelasOciosasHoje.map((janela) => (
+                <tr key={`${janela.inicio}-${janela.fim}-${janela.profissional}`} className="align-top">
+                  <td className="px-3 py-3 font-medium text-gray-900">{janela.profissional}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-gray-700">
+                    {janela.inicio || '--:--'} - {janela.fim || '--:--'}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-gray-600">
+                    {formatDurationFromMinutes(janela.duracaoMin)}
+                  </td>
+                  {mostraEmpresaJanelas && (
+                    <td className="px-3 py-3 text-gray-600">{janela.empresa}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+
+        <TableCard
+          title="Profissionais sem Agendamento Hoje"
+          description="Profissionais ativos sem compromisso ativo"
+          loading={loading}
+          isEmpty={profissionaisSemAgendamentoHoje.length === 0}
+          emptyMessage="Todos os profissionais ativos possuem agendamento hoje."
+          emptyIcon={Users}
+        >
+          <table className="min-w-full divide-y divide-gray-200 text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2 font-semibold">Profissional</th>
+                <th className="px-3 py-2 font-semibold">Expediente</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
+                {mostraEmpresaProfissionais && <th className="px-3 py-2 font-semibold">Empresa</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {profissionaisSemAgendamentoHoje.map((profissional) => (
+                <tr key={`${profissional.profissional}-${profissional.empresa || ''}`} className="align-top">
+                  <td className="px-3 py-3 font-medium text-gray-900">{profissional.profissional}</td>
+                  <td className="px-3 py-3 text-gray-600">{profissional.expediente}</td>
+                  <td className="px-3 py-3">
+                    <span className="inline-flex w-fit whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                      {profissional.status}
+                    </span>
+                  </td>
+                  {mostraEmpresaProfissionais && (
+                    <td className="px-3 py-3 text-gray-600">{profissional.empresa}</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <TableCard
+          title="Dias com Maior Ocupação"
+          description="Top 5 do mês atual"
+          loading={loading}
+          isEmpty={diasMaiorOcupacao.length === 0}
+          emptyMessage="Sem dados suficientes para calcular ocupação."
+          emptyIcon={Activity}
+        >
+          <OcupacaoDiasTable rows={diasMaiorOcupacao} />
+        </TableCard>
+
+        <TableCard
+          title="Dias com Menor Ocupação"
+          description="Top 5 do mês atual"
+          loading={loading}
+          isEmpty={diasMenorOcupacao.length === 0}
+          emptyMessage="Sem dados suficientes para calcular ocupação."
+          emptyIcon={Activity}
+        >
+          <OcupacaoDiasTable rows={diasMenorOcupacao} />
+        </TableCard>
       </div>
     </div>
   )
