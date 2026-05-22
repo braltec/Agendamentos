@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
+  Activity,
   AlertCircle,
+  BarChart3,
   Calendar,
   CheckCircle,
   Clock,
@@ -9,7 +11,17 @@ import {
   Users,
   XCircle,
 } from 'lucide-react'
-import Card, { CardBody } from '../../components/ui/Card'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import Card, { CardBody, CardHeader } from '../../components/ui/Card'
 import dashboardService from '../../services/dashboard.service'
 
 const EMPTY_DATA = {
@@ -25,6 +37,21 @@ const EMPTY_DATA = {
     disponibilidadeCalculavelHoje: false,
     disponibilidadeCalculavelSemana: false,
   },
+  graficos: {
+    ocupacaoPorDiaSemana: [],
+    ocupacaoPorProfissional: [],
+    agendamentosPorFaixaHorario: [],
+    horariosMaisProcurados: [],
+  },
+}
+
+const chartColors = {
+  blue: '#3B82F6',
+  green: '#10B981',
+  red: '#EF4444',
+  orange: '#F59E0B',
+  purple: '#8B5CF6',
+  gray: '#6B7280',
 }
 
 function formatPercent(value) {
@@ -44,12 +71,25 @@ function formatDurationFromHours(value) {
   if (value === null || value === undefined) return 'Sem dados'
 
   const totalMinutes = Math.max(0, Math.round(Number(value || 0) * 60))
+  return formatDurationFromMinutes(totalMinutes)
+}
+
+function formatDurationFromMinutes(value) {
+  if (value === null || value === undefined) return 'Sem dados'
+
+  const totalMinutes = Math.max(0, Math.round(Number(value || 0)))
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
 
   if (hours > 0 && minutes > 0) return `${hours}h${String(minutes).padStart(2, '0')}`
   if (hours > 0) return `${hours}h`
   return `${minutes}min`
+}
+
+function truncateLabel(value, maxLength = 18) {
+  const label = String(value || '')
+  if (label.length <= maxLength) return label
+  return `${label.slice(0, maxLength - 1)}...`
 }
 
 function AgendaMetricCard({ title, value, helper, icon: Icon, tone = 'blue', muted = false }) {
@@ -82,6 +122,103 @@ function AgendaMetricCard({ title, value, helper, icon: Icon, tone = 'blue', mut
   )
 }
 
+function LoadingState() {
+  return <div className="text-center py-10 text-gray-500">Carregando...</div>
+}
+
+function EmptyState({ icon: Icon = AlertCircle, children }) {
+  return (
+    <div className="text-center py-10 text-gray-500">
+      <Icon className="w-11 h-11 mx-auto mb-3 text-gray-400" />
+      <p>{children}</p>
+    </div>
+  )
+}
+
+function ChartCard({ title, description, loading, isEmpty, emptyMessage, emptyIcon: EmptyIcon, children }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-1">
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          {description && <p className="text-sm text-gray-500">{description}</p>}
+        </div>
+      </CardHeader>
+      <CardBody>
+        {loading ? (
+          <LoadingState />
+        ) : isEmpty ? (
+          <EmptyState icon={EmptyIcon}>{emptyMessage}</EmptyState>
+        ) : (
+          children
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function TooltipContainer({ title, children }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2">
+      <p className="text-sm font-semibold text-gray-900 mb-2">{title}</p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function TooltipRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-5 text-sm">
+      <span className="text-gray-600">{label}</span>
+      <span className="font-medium text-gray-900">{value}</span>
+    </div>
+  )
+}
+
+function OcupacaoTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+
+  const data = payload[0].payload
+  const title = data.profissionalNome || `${data.dia} - ${data.data}`
+
+  return (
+    <TooltipContainer title={title}>
+      {data.empresaNome && <TooltipRow label="Empresa" value={data.empresaNome} />}
+      <TooltipRow label="Ocupação" value={formatPercent(data.ocupacaoPercentual)} />
+      <TooltipRow label="Horas ocupadas" value={formatDurationFromMinutes(data.minutosOcupados)} />
+      <TooltipRow label="Horas disponíveis" value={formatDurationFromMinutes(data.minutosDisponiveis)} />
+      <TooltipRow label="Agendamentos" value={formatNumber(data.totalAgendamentos)} />
+    </TooltipContainer>
+  )
+}
+
+function FaixaHorarioTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+
+  const data = payload[0].payload
+
+  return (
+    <TooltipContainer title={label}>
+      <TooltipRow label="Agendamentos" value={formatNumber(data.agendamentos)} />
+      <TooltipRow label="Cancelamentos" value={formatNumber(data.cancelamentos)} />
+    </TooltipContainer>
+  )
+}
+
+function HorariosProcuradosTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+
+  const data = payload[0].payload
+
+  return (
+    <TooltipContainer title={label}>
+      <TooltipRow label="Agendamentos" value={formatNumber(data.quantidade)} />
+      <TooltipRow label="Cancelamentos" value={formatNumber(data.cancelamentos)} />
+      <TooltipRow label="Cancelamento" value={formatPercent(data.percentualCancelamento)} />
+    </TooltipContainer>
+  )
+}
+
 export default function AgendaDisponibilidade() {
   const [loading, setLoading] = useState(true)
   const [agendaData, setAgendaData] = useState(EMPTY_DATA)
@@ -110,6 +247,43 @@ export default function AgendaDisponibilidade() {
   const ocupacaoHojeCalculavel = Boolean(cards.disponibilidadeCalculavelHoje)
   const ocupacaoSemanaCalculavel = Boolean(cards.disponibilidadeCalculavelSemana)
   const proximoHorarioLivre = cards.proximoHorarioLivre
+  const graficos = agendaData?.graficos || EMPTY_DATA.graficos
+  const ocupacaoPorDiaSemana = (graficos.ocupacaoPorDiaSemana || []).map((item) => ({
+    ...item,
+    minutosDisponiveis: Number(item.minutosDisponiveis || 0),
+    minutosOcupados: Number(item.minutosOcupados || 0),
+    ocupacaoPercentual: item.ocupacaoPercentual === null || item.ocupacaoPercentual === undefined
+      ? null
+      : Number(item.ocupacaoPercentual),
+    totalAgendamentos: Number(item.totalAgendamentos || 0),
+  }))
+  const ocupacaoPorProfissional = (graficos.ocupacaoPorProfissional || []).map((item) => ({
+    ...item,
+    nomeCurto: truncateLabel(item.profissionalNome, 20),
+    minutosDisponiveis: Number(item.minutosDisponiveis || 0),
+    minutosOcupados: Number(item.minutosOcupados || 0),
+    ocupacaoPercentual: item.ocupacaoPercentual === null || item.ocupacaoPercentual === undefined
+      ? null
+      : Number(item.ocupacaoPercentual),
+    totalAgendamentos: Number(item.totalAgendamentos || 0),
+  }))
+  const agendamentosPorFaixaHorario = (graficos.agendamentosPorFaixaHorario || []).map((item) => ({
+    ...item,
+    agendamentos: Number(item.agendamentos || 0),
+    cancelamentos: Number(item.cancelamentos || 0),
+  }))
+  const horariosMaisProcurados = (graficos.horariosMaisProcurados || []).map((item) => ({
+    ...item,
+    quantidade: Number(item.quantidade || 0),
+    cancelamentos: Number(item.cancelamentos || 0),
+    percentualCancelamento: Number(item.percentualCancelamento || 0),
+  }))
+  const temOcupacaoPorDia = ocupacaoPorDiaSemana.some((item) => item.ocupacaoPercentual !== null)
+  const temOcupacaoPorProfissional = ocupacaoPorProfissional.some((item) => item.ocupacaoPercentual !== null)
+  const temAgendamentosPorFaixa = agendamentosPorFaixaHorario.some(
+    (item) => item.agendamentos > 0 || item.cancelamentos > 0,
+  )
+  const temHorariosProcurados = horariosMaisProcurados.length > 0
 
   return (
     <div className="space-y-6">
@@ -196,6 +370,153 @@ export default function AgendaDisponibilidade() {
           icon={XCircle}
           tone="red"
         />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <ChartCard
+          title="Ocupação por dia da semana"
+          description="Semana atual"
+          loading={loading}
+          isEmpty={!temOcupacaoPorDia}
+          emptyMessage="Sem dados suficientes para calcular ocupação."
+          emptyIcon={Activity}
+        >
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={ocupacaoPorDiaSemana}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <XAxis dataKey="dia" tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <YAxis
+                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                  tickFormatter={(value) => `${Number(value || 0).toLocaleString('pt-BR')}%`}
+                />
+                <Tooltip content={<OcupacaoTooltip />} />
+                <Bar
+                  dataKey="ocupacaoPercentual"
+                  name="Ocupação"
+                  fill={chartColors.blue}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        <ChartCard
+          title="Ocupação por profissional"
+          description="Semana atual"
+          loading={loading}
+          isEmpty={!temOcupacaoPorProfissional}
+          emptyMessage="Sem dados suficientes para calcular ocupação."
+          emptyIcon={Users}
+        >
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={ocupacaoPorProfissional}
+                layout="vertical"
+                margin={{ left: 18, right: 18 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
+                <XAxis
+                  type="number"
+                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                  tickFormatter={(value) => `${Number(value || 0).toLocaleString('pt-BR')}%`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="nomeCurto"
+                  width={150}
+                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                />
+                <Tooltip content={<OcupacaoTooltip />} />
+                <Bar
+                  dataKey="ocupacaoPercentual"
+                  name="Ocupação"
+                  fill={chartColors.purple}
+                  radius={[0, 4, 4, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <ChartCard
+          title="Agendamentos por faixa de horário"
+          description="Mês atual"
+          loading={loading}
+          isEmpty={!temAgendamentosPorFaixa}
+          emptyMessage="Nenhum agendamento encontrado para o período."
+          emptyIcon={Clock}
+        >
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={agendamentosPorFaixaHorario}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                <XAxis dataKey="faixa" tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <Tooltip content={<FaixaHorarioTooltip />} />
+                <Legend />
+                <Bar
+                  dataKey="agendamentos"
+                  name="Agendamentos"
+                  fill={chartColors.green}
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="cancelamentos"
+                  name="Cancelamentos"
+                  fill={chartColors.red}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        <ChartCard
+          title="Horários mais procurados"
+          description="Top 10 do mês atual"
+          loading={loading}
+          isEmpty={!temHorariosProcurados}
+          emptyMessage="Ainda não há dados para este período."
+          emptyIcon={BarChart3}
+        >
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={horariosMaisProcurados}
+                layout="vertical"
+                margin={{ left: 8, right: 18 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
+                <XAxis type="number" allowDecimals={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <YAxis
+                  type="category"
+                  dataKey="horario"
+                  width={70}
+                  tick={{ fill: '#6B7280', fontSize: 12 }}
+                />
+                <Tooltip content={<HorariosProcuradosTooltip />} />
+                <Legend />
+                <Bar
+                  dataKey="quantidade"
+                  name="Agendamentos"
+                  fill={chartColors.blue}
+                  radius={[0, 4, 4, 0]}
+                />
+                <Bar
+                  dataKey="cancelamentos"
+                  name="Cancelamentos"
+                  fill={chartColors.orange}
+                  radius={[0, 4, 4, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
       </div>
     </div>
   )

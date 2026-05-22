@@ -111,7 +111,9 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
         CURRENT_TIMESTAMP AS agora,
         date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_semana,
-        (date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '7 days')::date AS fim_semana
+        (date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '7 days')::date AS fim_semana,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes
     ),
     status_flags AS (
       SELECT EXISTS (
@@ -204,6 +206,30 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         AND a.agend_data < p.fim_semana
         ${scopedAnd('a', isSuperAdmin)}
     ),
+    agendamentos_mes AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        a.profissional_id,
+        a.agend_data,
+        a.agend_inicio,
+        a.agend_fim,
+        sc.status_agend_nome,
+        sc.cancelado,
+        (
+          NOT sc.cancelado
+          AND (
+            sc.ativo_agenda_nome
+            OR NOT (SELECT has_status_ativo_agenda FROM status_flags)
+          )
+        ) AS ativo_agenda
+      FROM agendamento a
+      JOIN periodo p ON true
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      WHERE a.agend_data >= p.inicio_mes
+        AND a.agend_data < p.fim_mes
+        ${scopedAnd('a', isSuperAdmin)}
+    ),
     capacidade AS (
       SELECT
         COALESCE(SUM(minutos_disponiveis) FILTER (WHERE dia = (SELECT hoje FROM periodo)), 0) AS minutos_disponiveis_hoje,
@@ -230,6 +256,137 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
             AND cancelado
         ) AS cancelamentos_hoje
       FROM agendamentos_semana
+    ),
+    capacidade_por_dia AS (
+      SELECT
+        d.dia,
+        COALESCE(SUM(ep.minutos_disponiveis), 0)::numeric AS minutos_disponiveis
+      FROM dias_semana d
+      LEFT JOIN expediente_profissional ep ON ep.dia = d.dia
+      GROUP BY d.dia
+    ),
+    ocupacao_por_dia_base AS (
+      SELECT
+        agend_data AS dia,
+        COALESCE(SUM(minutos_agendados) FILTER (WHERE ativo_agenda), 0)::numeric AS minutos_ocupados,
+        COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda) AS total_agendamentos
+      FROM agendamentos_semana
+      GROUP BY agend_data
+    ),
+    ocupacao_por_dia AS (
+      SELECT
+        cpd.dia,
+        CASE EXTRACT(ISODOW FROM cpd.dia)::int
+          WHEN 1 THEN 'Segunda'
+          WHEN 2 THEN 'Terça'
+          WHEN 3 THEN 'Quarta'
+          WHEN 4 THEN 'Quinta'
+          WHEN 5 THEN 'Sexta'
+          WHEN 6 THEN 'Sábado'
+          ELSE 'Domingo'
+        END AS nome_dia,
+        cpd.minutos_disponiveis,
+        COALESCE(opdb.minutos_ocupados, 0)::numeric AS minutos_ocupados,
+        COALESCE(opdb.total_agendamentos, 0) AS total_agendamentos,
+        CASE
+          WHEN cpd.minutos_disponiveis > 0
+            THEN ROUND((COALESCE(opdb.minutos_ocupados, 0) / cpd.minutos_disponiveis) * 100, 1)
+          ELSE NULL
+        END AS ocupacao_percentual
+      FROM capacidade_por_dia cpd
+      LEFT JOIN ocupacao_por_dia_base opdb ON opdb.dia = cpd.dia
+    ),
+    capacidade_por_profissional AS (
+      SELECT
+        pa.profissional_id,
+        pa.profissional_nome,
+        pa.empresa_nome,
+        COALESCE(SUM(ep.minutos_disponiveis), 0)::numeric AS minutos_disponiveis
+      FROM profissionais_ativos pa
+      LEFT JOIN expediente_profissional ep ON ep.profissional_id = pa.profissional_id
+      GROUP BY pa.profissional_id, pa.profissional_nome, pa.empresa_nome
+    ),
+    ocupacao_por_profissional_base AS (
+      SELECT
+        profissional_id,
+        COALESCE(SUM(minutos_agendados) FILTER (WHERE ativo_agenda), 0)::numeric AS minutos_ocupados,
+        COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda) AS total_agendamentos
+      FROM agendamentos_semana
+      GROUP BY profissional_id
+    ),
+    ocupacao_por_profissional AS (
+      SELECT
+        cpp.profissional_id,
+        cpp.profissional_nome,
+        cpp.empresa_nome,
+        cpp.minutos_disponiveis,
+        COALESCE(oppb.minutos_ocupados, 0)::numeric AS minutos_ocupados,
+        COALESCE(oppb.total_agendamentos, 0) AS total_agendamentos,
+        CASE
+          WHEN cpp.minutos_disponiveis > 0
+            THEN ROUND((COALESCE(oppb.minutos_ocupados, 0) / cpp.minutos_disponiveis) * 100, 1)
+          ELSE NULL
+        END AS ocupacao_percentual
+      FROM capacidade_por_profissional cpp
+      LEFT JOIN ocupacao_por_profissional_base oppb
+        ON oppb.profissional_id = cpp.profissional_id
+    ),
+    faixas_horario(ordem, faixa, hora_inicio, hora_fim) AS (
+      VALUES
+        (1, '06:00-08:00', 6, 8),
+        (2, '08:00-10:00', 8, 10),
+        (3, '10:00-12:00', 10, 12),
+        (4, '12:00-14:00', 12, 14),
+        (5, '14:00-16:00', 14, 16),
+        (6, '16:00-18:00', 16, 18),
+        (7, '18:00-20:00', 18, 20),
+        (8, '20:00-22:00', 20, 22)
+    ),
+    agendamentos_mes_horario AS (
+      SELECT
+        *,
+        EXTRACT(HOUR FROM agend_inicio AT TIME ZONE '${TIMEZONE}')::int AS hora_inicio_local,
+        to_char(agend_inicio AT TIME ZONE '${TIMEZONE}', 'HH24:MI') AS horario_inicio_local
+      FROM agendamentos_mes
+    ),
+    agendamentos_por_faixa AS (
+      SELECT
+        fh.ordem,
+        fh.faixa,
+        COUNT(DISTINCT amh.agend_id) FILTER (WHERE amh.ativo_agenda) AS agendamentos,
+        COUNT(DISTINCT amh.agend_id) FILTER (WHERE amh.cancelado) AS cancelamentos
+      FROM faixas_horario fh
+      LEFT JOIN agendamentos_mes_horario amh
+        ON amh.hora_inicio_local >= fh.hora_inicio
+        AND amh.hora_inicio_local < fh.hora_fim
+      GROUP BY fh.ordem, fh.faixa
+    ),
+    horarios_mais_procurados AS (
+      SELECT
+        horario_inicio_local AS horario,
+        COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda) AS quantidade,
+        COUNT(DISTINCT agend_id) FILTER (WHERE cancelado) AS cancelamentos,
+        CASE
+          WHEN COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda OR cancelado) > 0
+            THEN ROUND(
+              (
+                COUNT(DISTINCT agend_id) FILTER (WHERE cancelado)
+              )::numeric
+              / (
+                COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda OR cancelado)
+              )::numeric * 100,
+              1
+            )
+          ELSE 0
+        END AS percentual_cancelamento
+      FROM agendamentos_mes_horario
+      WHERE horario_inicio_local IS NOT NULL
+      GROUP BY horario_inicio_local
+      HAVING COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda OR cancelado) > 0
+      ORDER BY
+        COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda OR cancelado) DESC,
+        horario_inicio_local
+      LIMIT 10
     ),
     expediente_hoje AS (
       SELECT ep.*
@@ -375,7 +532,59 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       oc.cancelamentos_hoje,
       to_char(pj.janela_inicio AT TIME ZONE '${TIMEZONE}', 'HH24:MI') AS proximo_horario_livre_hora,
       pj.profissional_nome AS proximo_horario_livre_profissional,
-      pj.empresa_nome AS proximo_horario_livre_empresa
+      pj.empresa_nome AS proximo_horario_livre_empresa,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'dia', opd.nome_dia,
+            'data', opd.dia,
+            'minutosDisponiveis', opd.minutos_disponiveis,
+            'minutosOcupados', opd.minutos_ocupados,
+            'ocupacaoPercentual', opd.ocupacao_percentual,
+            'totalAgendamentos', opd.total_agendamentos
+          )
+          ORDER BY opd.dia
+        )
+        FROM ocupacao_por_dia opd
+      ), '[]'::json) AS ocupacao_por_dia_semana,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'profissionalId', opp.profissional_id,
+            'profissionalNome', opp.profissional_nome,
+            'empresaNome', ${isSuperAdmin ? 'opp.empresa_nome' : 'NULL'},
+            'minutosDisponiveis', opp.minutos_disponiveis,
+            'minutosOcupados', opp.minutos_ocupados,
+            'ocupacaoPercentual', opp.ocupacao_percentual,
+            'totalAgendamentos', opp.total_agendamentos
+          )
+          ORDER BY opp.ocupacao_percentual DESC NULLS LAST, opp.profissional_nome
+        )
+        FROM ocupacao_por_profissional opp
+      ), '[]'::json) AS ocupacao_por_profissional,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'faixa', apf.faixa,
+            'agendamentos', apf.agendamentos,
+            'cancelamentos', apf.cancelamentos
+          )
+          ORDER BY apf.ordem
+        )
+        FROM agendamentos_por_faixa apf
+      ), '[]'::json) AS agendamentos_por_faixa_horario,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'horario', hmp.horario,
+            'quantidade', hmp.quantidade,
+            'cancelamentos', hmp.cancelamentos,
+            'percentualCancelamento', hmp.percentual_cancelamento
+          )
+          ORDER BY (hmp.quantidade + hmp.cancelamentos) DESC, hmp.horario
+        )
+        FROM horarios_mais_procurados hmp
+      ), '[]'::json) AS horarios_mais_procurados
     FROM capacidade cap
     CROSS JOIN ocupacao oc
     LEFT JOIN LATERAL (
@@ -407,6 +616,12 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       cancelamentosHoje: toInt(row.cancelamentos_hoje),
       disponibilidadeCalculavelHoje: Boolean(row.disponibilidade_calculavel_hoje),
       disponibilidadeCalculavelSemana: Boolean(row.disponibilidade_calculavel_semana),
+    },
+    graficos: {
+      ocupacaoPorDiaSemana: row.ocupacao_por_dia_semana || [],
+      ocupacaoPorProfissional: row.ocupacao_por_profissional || [],
+      agendamentosPorFaixaHorario: row.agendamentos_por_faixa_horario || [],
+      horariosMaisProcurados: row.horarios_mais_procurados || [],
     },
   }
 }
