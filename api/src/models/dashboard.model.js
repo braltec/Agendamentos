@@ -104,6 +104,313 @@ function toTimestamp(value) {
   return value
 }
 
+async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
+        CURRENT_TIMESTAMP AS agora,
+        date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_semana,
+        (date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '7 days')::date AS fim_semana
+    ),
+    status_flags AS (
+      SELECT EXISTS (
+        SELECT 1
+        FROM status_agend
+        WHERE LOWER(status_agend_nome) LIKE '%agend%'
+          OR LOWER(status_agend_nome) LIKE '%confirm%'
+          OR LOWER(status_agend_nome) LIKE '%avis%'
+      ) AS has_status_ativo_agenda
+    ),
+    status_classificado AS (
+      SELECT
+        status_agend_id,
+        status_agend_nome,
+        LOWER(status_agend_nome) LIKE '%cancel%' AS cancelado,
+        (
+          LOWER(status_agend_nome) LIKE '%agend%'
+          OR LOWER(status_agend_nome) LIKE '%confirm%'
+          OR LOWER(status_agend_nome) LIKE '%avis%'
+        ) AS ativo_agenda_nome
+      FROM status_agend
+    ),
+    profissionais_ativos AS (
+      SELECT
+        prof.profissional_id,
+        prof.profissional_nome,
+        prof.empresa_id,
+        e.empresa_nome,
+        COALESCE(ec.empresa_cfg_interv_minutos, 30) AS intervalo_min
+      FROM profissional prof
+      JOIN empresa e ON e.empresa_id = prof.empresa_id
+      LEFT JOIN empresa_cfg ec ON ec.empresa_cfg_id = e.empresa_cfg_id
+      WHERE prof.status = 'ativo'
+        ${scopedAnd('prof', isSuperAdmin)}
+    ),
+    dias_semana AS (
+      SELECT generate_series(
+        (SELECT inicio_semana FROM periodo),
+        (SELECT fim_semana FROM periodo) - INTERVAL '1 day',
+        INTERVAL '1 day'
+      )::date AS dia
+    ),
+    expediente_profissional AS (
+      SELECT
+        d.dia,
+        pa.profissional_id,
+        pa.profissional_nome,
+        pa.empresa_id,
+        pa.empresa_nome,
+        pa.intervalo_min,
+        hd.horario_det_id,
+        ((d.dia + hd.horario_det_inicio) AT TIME ZONE '${TIMEZONE}') AS inicio_expediente,
+        ((d.dia + hd.horario_det_fim) AT TIME ZONE '${TIMEZONE}') AS fim_expediente,
+        GREATEST(
+          EXTRACT(EPOCH FROM (hd.horario_det_fim - hd.horario_det_inicio)) / 60.0,
+          0
+        )::numeric AS minutos_disponiveis
+      FROM dias_semana d
+      JOIN profissionais_ativos pa ON true
+      JOIN profissional_horario ph ON ph.profissional_id = pa.profissional_id
+      JOIN horario_det hd ON hd.horario_f_id = ph.horario_f_id
+      WHERE hd.horario_def = EXTRACT(DOW FROM d.dia)::int
+        OR (hd.horario_def = 7 AND EXTRACT(DOW FROM d.dia)::int = 0)
+    ),
+    agendamentos_semana AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        a.profissional_id,
+        a.agend_data,
+        a.agend_inicio,
+        a.agend_fim,
+        sc.status_agend_nome,
+        sc.cancelado,
+        (
+          NOT sc.cancelado
+          AND (
+            sc.ativo_agenda_nome
+            OR NOT (SELECT has_status_ativo_agenda FROM status_flags)
+          )
+        ) AS ativo_agenda,
+        GREATEST(
+          COALESCE(EXTRACT(EPOCH FROM (a.agend_fim - a.agend_inicio)) / 60.0, 0),
+          0
+        )::numeric AS minutos_agendados
+      FROM agendamento a
+      JOIN periodo p ON true
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      WHERE a.agend_data >= p.inicio_semana
+        AND a.agend_data < p.fim_semana
+        ${scopedAnd('a', isSuperAdmin)}
+    ),
+    capacidade AS (
+      SELECT
+        COALESCE(SUM(minutos_disponiveis) FILTER (WHERE dia = (SELECT hoje FROM periodo)), 0) AS minutos_disponiveis_hoje,
+        COALESCE(SUM(minutos_disponiveis), 0) AS minutos_disponiveis_semana,
+        COUNT(DISTINCT profissional_id) FILTER (WHERE dia = (SELECT hoje FROM periodo)) AS profissionais_ativos_hoje
+      FROM expediente_profissional
+    ),
+    ocupacao AS (
+      SELECT
+        COALESCE(SUM(minutos_agendados) FILTER (
+          WHERE agend_data = (SELECT hoje FROM periodo)
+            AND ativo_agenda
+        ), 0) AS minutos_ocupados_hoje,
+        COALESCE(SUM(minutos_agendados) FILTER (WHERE ativo_agenda), 0) AS minutos_ocupados_semana,
+        COUNT(DISTINCT agend_id) FILTER (
+          WHERE agend_data = (SELECT hoje FROM periodo)
+            AND ativo_agenda
+            AND agend_inicio >= (SELECT agora FROM periodo)
+        ) AS agendamentos_restantes_hoje,
+        -- O schema atual não possui data de cancelamento; por isso a aproximação
+        -- usa a data do próprio agendamento para "cancelamentos hoje".
+        COUNT(DISTINCT agend_id) FILTER (
+          WHERE agend_data = (SELECT hoje FROM periodo)
+            AND cancelado
+        ) AS cancelamentos_hoje
+      FROM agendamentos_semana
+    ),
+    expediente_hoje AS (
+      SELECT ep.*
+      FROM expediente_profissional ep
+      JOIN periodo p ON true
+      WHERE ep.dia = p.hoje
+        AND ep.fim_expediente > p.agora
+    ),
+    agendamentos_hoje_ativos AS (
+      SELECT *
+      FROM agendamentos_semana
+      WHERE agend_data = (SELECT hoje FROM periodo)
+        AND ativo_agenda
+    ),
+    ocupados_hoje AS (
+      SELECT
+        eh.horario_det_id,
+        eh.profissional_id,
+        eh.profissional_nome,
+        eh.empresa_nome,
+        eh.intervalo_min,
+        eh.inicio_expediente,
+        eh.fim_expediente,
+        GREATEST(a.agend_inicio, eh.inicio_expediente) AS ocup_inicio,
+        LEAST(a.agend_fim, eh.fim_expediente) AS ocup_fim
+      FROM expediente_hoje eh
+      JOIN agendamentos_hoje_ativos a
+        ON a.profissional_id = eh.profissional_id
+        AND a.agend_inicio < eh.fim_expediente
+        AND a.agend_fim > eh.inicio_expediente
+    ),
+    expediente_hoje_base AS (
+      SELECT
+        eh.horario_det_id,
+        eh.profissional_id,
+        eh.profissional_nome,
+        eh.empresa_nome,
+        eh.intervalo_min,
+        eh.inicio_expediente,
+        eh.fim_expediente,
+        GREATEST(
+          eh.inicio_expediente,
+          p.agora,
+          COALESCE(MAX(o.ocup_fim), eh.inicio_expediente)
+        ) AS inicio_busca
+      FROM expediente_hoje eh
+      CROSS JOIN periodo p
+      LEFT JOIN ocupados_hoje o
+        ON o.horario_det_id = eh.horario_det_id
+        AND o.ocup_inicio <= p.agora
+        AND o.ocup_fim > p.agora
+      GROUP BY
+        eh.horario_det_id,
+        eh.profissional_id,
+        eh.profissional_nome,
+        eh.empresa_nome,
+        eh.intervalo_min,
+        eh.inicio_expediente,
+        eh.fim_expediente,
+        p.agora
+    ),
+    janelas_iniciais AS (
+      SELECT
+        eh.profissional_id,
+        eh.profissional_nome,
+        eh.empresa_nome,
+        eh.intervalo_min,
+        eh.inicio_busca AS janela_inicio,
+        COALESCE(MIN(o.ocup_inicio), eh.fim_expediente) AS janela_fim
+      FROM expediente_hoje_base eh
+      LEFT JOIN ocupados_hoje o
+        ON o.horario_det_id = eh.horario_det_id
+        AND o.ocup_inicio >= eh.inicio_busca
+      GROUP BY
+        eh.profissional_id,
+        eh.profissional_nome,
+        eh.empresa_nome,
+        eh.intervalo_min,
+        eh.inicio_busca,
+        eh.fim_expediente
+    ),
+    janelas_apos_agendamentos AS (
+      SELECT
+        o.profissional_id,
+        o.profissional_nome,
+        o.empresa_nome,
+        o.intervalo_min,
+        GREATEST(o.ocup_fim, p.agora) AS janela_inicio,
+        COALESCE(MIN(o2.ocup_inicio), o.fim_expediente) AS janela_fim
+      FROM ocupados_hoje o
+      CROSS JOIN periodo p
+      LEFT JOIN ocupados_hoje o2
+        ON o2.horario_det_id = o.horario_det_id
+        AND o2.ocup_inicio >= o.ocup_fim
+      WHERE o.ocup_fim >= p.agora
+      GROUP BY
+        o.profissional_id,
+        o.profissional_nome,
+        o.empresa_nome,
+        o.intervalo_min,
+        o.ocup_fim,
+        o.fim_expediente,
+        p.agora
+    ),
+    janelas_livres AS (
+      SELECT * FROM janelas_iniciais
+      UNION ALL
+      SELECT * FROM janelas_apos_agendamentos
+    ),
+    proximas_janelas AS (
+      SELECT
+        profissional_id,
+        profissional_nome,
+        empresa_nome,
+        janela_inicio,
+        janela_fim,
+        EXTRACT(EPOCH FROM (janela_fim - janela_inicio)) / 60.0 AS duracao_min
+      FROM janelas_livres
+      WHERE janela_fim > janela_inicio
+        AND EXTRACT(EPOCH FROM (janela_fim - janela_inicio)) / 60.0 >= intervalo_min
+    )
+    SELECT
+      CASE
+        WHEN cap.minutos_disponiveis_hoje > 0
+          THEN ROUND((oc.minutos_ocupados_hoje / cap.minutos_disponiveis_hoje) * 100, 1)
+        ELSE NULL
+      END AS ocupacao_hoje,
+      CASE
+        WHEN cap.minutos_disponiveis_semana > 0
+          THEN ROUND((oc.minutos_ocupados_semana / cap.minutos_disponiveis_semana) * 100, 1)
+        ELSE NULL
+      END AS ocupacao_semana,
+      CASE
+        WHEN cap.minutos_disponiveis_hoje > 0
+          THEN ROUND(GREATEST(cap.minutos_disponiveis_hoje - oc.minutos_ocupados_hoje, 0) / 60.0, 2)
+        ELSE NULL
+      END AS horas_disponiveis_hoje,
+      ROUND(oc.minutos_ocupados_hoje / 60.0, 2) AS horas_ocupadas_hoje,
+      cap.minutos_disponiveis_hoje > 0 AS disponibilidade_calculavel_hoje,
+      cap.minutos_disponiveis_semana > 0 AS disponibilidade_calculavel_semana,
+      cap.profissionais_ativos_hoje,
+      oc.agendamentos_restantes_hoje,
+      oc.cancelamentos_hoje,
+      to_char(pj.janela_inicio AT TIME ZONE '${TIMEZONE}', 'HH24:MI') AS proximo_horario_livre_hora,
+      pj.profissional_nome AS proximo_horario_livre_profissional,
+      pj.empresa_nome AS proximo_horario_livre_empresa
+    FROM capacidade cap
+    CROSS JOIN ocupacao oc
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM proximas_janelas
+      ORDER BY janela_inicio, profissional_nome
+      LIMIT 1
+    ) pj ON true
+  `, scopedParams(empresaId, isSuperAdmin))
+
+  const row = result.rows[0] || {}
+  const proximoHorarioLivre = row.proximo_horario_livre_hora
+    ? {
+      hora: row.proximo_horario_livre_hora,
+      profissional: row.proximo_horario_livre_profissional,
+      empresa: row.proximo_horario_livre_empresa,
+    }
+    : null
+
+  return {
+    cards: {
+      ocupacaoHoje: toNullableNumber(row.ocupacao_hoje),
+      ocupacaoSemana: toNullableNumber(row.ocupacao_semana),
+      horasDisponiveisHoje: toNullableNumber(row.horas_disponiveis_hoje),
+      horasOcupadasHoje: toNumber(row.horas_ocupadas_hoje),
+      proximoHorarioLivre,
+      profissionaisAtivosHoje: toInt(row.profissionais_ativos_hoje),
+      agendamentosRestantesHoje: toInt(row.agendamentos_restantes_hoje),
+      cancelamentosHoje: toInt(row.cancelamentos_hoje),
+      disponibilidadeCalculavelHoje: Boolean(row.disponibilidade_calculavel_hoje),
+      disponibilidadeCalculavelSemana: Boolean(row.disponibilidade_calculavel_semana),
+    },
+  }
+}
+
 async function getResumo(empresaId, isSuperAdmin) {
   const result = await pool.query(`
     ${baseCtes(isSuperAdmin)},
@@ -671,6 +978,10 @@ function montarTabelas(servicosResumo, resumo, outrasTabelas) {
 }
 
 export const dashboardModel = {
+  async getGestaoAgenda({ empresaId, isSuperAdmin }) {
+    return getGestaoAgendaCards(empresaId, isSuperAdmin)
+  },
+
   async getVisaoGeral({ empresaId, isSuperAdmin }) {
     // TODO futuro: no-show exige status "Não compareceu" ou campo explícito de presença.
     // TODO futuro: desempenho de IA deve vir de uma tabela de eventos do agente

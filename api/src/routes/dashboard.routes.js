@@ -1,6 +1,7 @@
 import express from 'express'
 import {
   getVisaoGeral,
+  getGestaoAgenda,
   getDashboardStats,
   getProximosAgendamentos,
   getProfissionaisHoje,
@@ -16,6 +17,9 @@ router.use(authMiddleware)
 
 // Buscar dados executivos da aba Visão Geral
 router.get('/visao-geral', getVisaoGeral)
+
+// Buscar cards operacionais da aba Gestão de Agenda
+router.get('/gestao-agenda', getGestaoAgenda)
 
 // Buscar estatísticas do dashboard
 router.get('/stats', getDashboardStats)

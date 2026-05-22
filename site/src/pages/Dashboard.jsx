@@ -31,6 +31,7 @@ import Card, { CardBody, CardHeader } from '../components/ui/Card'
 import wizardService from '../services/wizard.service'
 import dashboardService from '../services/dashboard.service'
 import { useAuth } from '../contexts/AuthContext'
+import AgendaDisponibilidade from './Dashboard/AgendaDisponibilidade'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -203,6 +204,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState(EMPTY_DASHBOARD)
   const [errorMessage, setErrorMessage] = useState('')
+  const [activeTab, setActiveTab] = useState('visao-geral')
 
   const isSuperAdmin = user?.nivel_acesso_id === SUPER_ADMIN_ID
 
@@ -275,13 +277,46 @@ export default function Dashboard() {
       <div className="flex flex-col gap-2">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Visão Geral</p>
+          <p className="text-gray-600 mt-1">
+            {activeTab === 'visao-geral' ? 'Visão Geral' : 'Agenda e Disponibilidade'}
+          </p>
         </div>
         <div className="inline-flex w-fit rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
           Período atual
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('visao-geral')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'visao-geral'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Visão Geral
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('agenda-disponibilidade')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'agenda-disponibilidade'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Agenda e Disponibilidade
+        </button>
+      </div>
+
+      {activeTab === 'agenda-disponibilidade' ? (
+        <AgendaDisponibilidade />
+      ) : (
+        <>
       {errorMessage && (
         <Card className="border-red-200 bg-red-50">
           <CardBody>
@@ -746,6 +781,8 @@ export default function Dashboard() {
             </CardBody>
           </Card>
         </div>
+      )}
+        </>
       )}
     </div>
   )

@@ -7,6 +7,12 @@ export const dashboardService = {
     return response.data
   },
 
+  // Buscar cards operacionais da aba Gestão de Agenda
+  async getGestaoAgenda() {
+    const response = await api.get('/dashboard/gestao-agenda')
+    return response.data
+  },
+
   // Buscar estatísticas do dashboard
   async getStats() {
     const response = await api.get('/dashboard/stats')
