@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentação do Banco de Dados - Sistema de Agendamento</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #fff;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 30px;
+            font-size: 2.5em;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #95a5a6;
+            padding-bottom: 8px;
+            margin-top: 25px;
+            font-size: 2em;
+        }
+        
+        h3 {
+            color: #2980b9;
+            margin-top: 20px;
+            font-size: 1.5em;
+        }
+        
+        h4 {
+            color: #16a085;
+            margin-top: 15px;
+            font-size: 1.2em;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e74c3c;
+            font-size: 0.9em;
+        }
+        
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            border-left: 4px solid #3498db;
+        }
+        
+        pre code {
+            background-color: transparent;
+            color: #ecf0f1;
+            padding: 0;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        em {
+            color: #7f8c8d;
+        }
+        
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin: 20px 0;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #ecf0f1;
+            margin: 30px 0;
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+        }
+        
+        @media print {
+            body {
+                max-width: 100%;
+            }
+            pre {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1>📚 Documentação do Banco de Dados - Sistema de Agendamento</h1>
+
+> <strong>Sistema Multi-tenant de Agendamento de Serviços com Integração WhatsApp e Google Calendar</strong>
+
+---
+
+<h2>📋 Índice</h2>
+
+<li><a href="#visão-geral">Visão Geral</a></li>
+<li><a href="#arquitetura-do-sistema">Arquitetura do Sistema</a></li>
+<li><a href="#modelo-de-dados">Modelo de Dados</a></li>
+<li><a href="#fluxo-de-agendamento">Fluxo de Agendamento</a></li>
+<li><a href="#regras-de-negócio">Regras de Negócio</a></li>
+<li><a href="#guia-de-desenvolvimento">Guia de Desenvolvimento</a></li>
+
+---
+
+<h2>🎯 Visão Geral</h2>
+
+<h3>O que é este Sistema?</h3>
+
+Este é um <strong>sistema de agendamento multi-tenant</strong> desenvolvido para salões de beleza, clínicas de estética e profissionais autônomos. O sistema permite que múltiplas empresas gerenciem seus agendamentos de forma independente e isolada.
+
+<h3>Principais Funcionalidades</h3>
+
+<ul><li>✅ <strong>Agendamento via WhatsApp</strong>: Clientes podem agendar serviços conversando pelo WhatsApp</li>
+<li>✅ <strong>Integração Google Calendar</strong>: Sincronização automática com calendários do Google</li>
+<li>✅ <strong>IA para Processamento de Linguagem</strong>: Entende mensagens em linguagem natural</li>
+<li>✅ <strong>Multi-tenant</strong>: Múltiplas empresas no mesmo banco, com isolamento total</li>
+<li>✅ <strong>Sistema de Cobrança</strong>: Controle de contratos e billing</li>
+<li>✅ <strong>Gestão de Horários</strong>: Controle de disponibilidade de profissionais</li>
+</ul>
+<h3>Tecnologia</h3>
+
+<ul><li><strong>Banco de Dados</strong>: PostgreSQL 16.9</li>
+<li><strong>Tipos de Dados Especiais</strong>: UUID, CITEXT, TSTZRANGE, INTERVAL</li>
+<li><strong>Recursos Avançados</strong>: Campos calculados, triggers, funções PL/pgSQL</li>
+</ul>
+---
+
+<h2>🏗️ Arquitetura do Sistema</h2>
+
+<h3>Conceito Multi-tenant</h3>
+
+O sistema utiliza o modelo <strong>multi-tenant com isolamento por empresa</strong>. Isso significa:
+
+<ul><li>Todas as empresas compartilham o mesmo banco de dados</li>
+<li>Cada empresa tem seus dados isolados através do campo <code>empresa_id</code></li>
+<li>Uma empresa <strong>nunca</strong> acessa dados de outra empresa</li>
+<li>Cada empresa pode ter suas próprias configurações</li>
+</ul>
+``<code>
+┌─────────────────────────────────────────────────────────┐
+│                    BANCO DE DADOS                       │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │  Empresa A   │  │  Empresa B   │  │  Empresa C   │ │
+│  │              │  │              │  │              │ │
+│  │ - Clientes   │  │ - Clientes   │  │ - Clientes   │ │
+│  │ - Profission.│  │ - Profission.│  │ - Profission.│ │
+│  │ - Agendament.│  │ - Agendament.│  │ - Agendament.│ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+└─────────────────────────────────────────────────────────┘
+</code>`<code>
+
+<h3>Identificação via Instância WhatsApp</h3>
+
+<strong>Como o sistema identifica qual empresa está sendo acessada?</strong>
+
+Quando uma mensagem chega via WhatsApp, o sistema usa a tabela </code>instancia<code> para identificar a empresa:
+
+</code>`<code>
+┌─────────────────────────────────────────────────────────────┐
+│                  FLUXO DE IDENTIFICAÇÃO                     │
+└─────────────────────────────────────────────────────────────┘
+
+Cliente envia mensagem → WhatsApp número +55 37 99949-6932
+                              ↓
+                    Webhook identifica instancia_id
+                              ↓
+              SELECT empresa_id FROM instancia 
+              WHERE instancia_id = 'xxx'
+                              ↓
+                    Empresa identificada!
+                              ↓
+              Todas as operações usam esse empresa_id
+</code>`<code>
+
+<strong>Exemplo Prático</strong>:
+<ul><li><strong>Empresa</strong>: Espaço Pamela Moraes</li>
+<li><strong>Número WhatsApp</strong>: 37999496932</li>
+<li><strong>Instância ID</strong>: (UUID único)</li>
+<li><strong>Empresa ID</strong>: 9ce11fb2-4440-4586-8ec5-fef4e22321e1</li>
+</ul>
+Quando um cliente envia mensagem para o número 37999496932, o sistema:
+<li>Identifica qual instância recebeu a mensagem</li>
+<li>Busca o </code>empresa_id<code> dessa instância</li>
+<li>Todas as consultas filtram por esse </code>empresa_id<code></li>
+
+<h3>Camadas do Sistema</h3>
+
+<li><strong>Camada de Empresa</strong>: Configurações e dados da empresa</li>
+<li><strong>Camada de Profissionais</strong>: Profissionais, serviços e horários</li>
+<li><strong>Camada de Clientes</strong>: Cadastro de clientes</li>
+<li><strong>Camada de Agendamento</strong>: Agendamentos e seus serviços</li>
+<li><strong>Camada de Integração</strong>: WhatsApp, Google Calendar e IA</li>
+<li><strong>Camada de Controle</strong>: Autenticação, billing e auditoria</li>
+
+---
+
+<h2>📊 Modelo de Dados</h2>
+
+<h3>Visão Geral das Tabelas</h3>
+
+O banco possui <strong>20 tabelas</strong> organizadas em grupos funcionais:
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Grupo</td><td>Tabelas</td><td>Propósito</td></tr>
+<tr><td>-------</td><td>---------</td><td>-----------</td></tr>
+<tr><td><strong>Empresa</strong></td><td></code>empresa<code>, </code>empresa_cfg<code>, </code>endereco<code></td><td>Dados e configurações da empresa</td></tr>
+<tr><td><strong>Profissionais</strong></td><td></code>profissional<code>, </code>servicos<code>, </code>profissional_servico<code></td><td>Profissionais e serviços oferecidos</td></tr>
+<tr><td><strong>Horários</strong></td><td></code>horario_f<code>, </code>horario_det<code>, </code>profissional_horario<code></td><td>Gestão de horários de trabalho</td></tr>
+<tr><td><strong>Clientes</strong></td><td></code>clientes<code></td><td>Cadastro de clientes</td></tr>
+<tr><td><strong>Agendamentos</strong></td><td></code>agendamento<code>, </code>agendamento_servico<code>, </code>status_agend<code></td><td>Gestão de agendamentos</td></tr>
+<tr><td><strong>Integração</strong></td><td></code>gcalendar<code>, </code>contexto_sessao<code>, </code>ai_prompt_templates<code></td><td>Integrações externas e IA</td></tr>
+<tr><td><strong>Controle</strong></td><td></code>login<code>, </code>nivel_acesso<code>, </code>instancia<code></td><td>Autenticação e controle</td></tr>
+<tr><td><strong>Billing</strong></td><td></code>contrato<code></td><td>Sistema de cobrança</td></tr>
+</table>
+---
+
+<h2>📦 Detalhamento das Tabelas</h2>
+
+<h3>🏢 Grupo: Empresa</h3>
+
+<h4></code>empresa<code> - Cadastro de Empresas</h4>
+
+<strong>Descrição</strong>: Tabela raiz do sistema. Cada empresa representa um tenant independente.
+
+</code>`<code>sql
+CREATE TABLE empresa (
+    empresa_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    endereco_id uuid NOT NULL,
+    empresa_cfg_id uuid NOT NULL,
+    cep varchar(8) NOT NULL,
+    empresa_nome varchar(100) NOT NULL,
+    empresa_contato varchar(50) NOT NULL,
+    empresa_dt_criacao timestamptz DEFAULT now(),
+    empresa_dt_atualizacao timestamptz DEFAULT now(),
+    status varchar(20) DEFAULT 'ativa',
+    endereco text,
+    observacoes text,
+    empresa_contato_agente varchar(20) DEFAULT ''
+);
+</code>`<code>
+
+<strong>Campos Importantes</strong>:
+<ul><li></code>empresa_id<code>: Chave primária, usada em todo o sistema para isolamento</li>
+<li></code>status<code>: Controla se a empresa está ativa ou inativa</li>
+<li></code>empresa_contato<code>: Telefone de contato (geralmente WhatsApp)</li>
+<li></code>empresa_contato_agente<code>: Número do agente/bot de WhatsApp</li>
+</ul>
+<strong>Exemplo de Dados Reais</strong>:
+</code>`<code>
+Espaço Pamela Moraes
+<ul><li>Telefone: 37999496932</li>
+<li>Endereço: Travessa 4, 15 - Tibo pereira, Formiga/MG</li>
+<li>Status: ativa</li>
+</ul></code>`<code>
+
+---
+
+<h4></code>empresa_cfg<code> - Configurações da Empresa</h4>
+
+<strong>Descrição</strong>: Configurações específicas de cada empresa para controle de agendamentos.
+
+</code>`<code>sql
+CREATE TABLE empresa_cfg (
+    empresa_cfg_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_cfg_anteced_minutos integer NOT NULL,
+    empresa_cfg_interv_minutos integer NOT NULL,
+    empresa_cfg_buffer_pre_minutos integer NOT NULL,
+    empresa_cfg_buffer_pos_minutos integer NOT NULL,
+    empresa_cfg_timezone text DEFAULT 'America/Sao_Paulo',
+    billing_enabled boolean DEFAULT false,
+    empresa_cfg_billing_grace_days integer DEFAULT 3,
+    empresa_cfg_nome varchar(100) DEFAULT 'Configuração Padrão',
+    prompt_key text DEFAULT 'prompt_agendamento',
+    prompt_version text DEFAULT '2025-08-26-01'
+);
+</code>`<code>
+
+<strong>Configurações Explicadas</strong>:
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Campo</td><td>Descrição</td><td>Exemplo</td></tr>
+<tr><td>-------</td><td>-----------</td><td>---------</td></tr>
+<tr><td></code>empresa_cfg_anteced_minutos<code></td><td>Tempo mínimo de antecedência para agendar</td><td>30 minutos</td></tr>
+<tr><td></code>empresa_cfg_interv_minutos<code></td><td>Intervalo mínimo entre agendamentos</td><td>15 minutos</td></tr>
+<tr><td></code>empresa_cfg_buffer_pre_minutos<code></td><td>Tempo de preparação antes do atendimento</td><td>5 minutos</td></tr>
+<tr><td></code>empresa_cfg_buffer_pos_minutos<code></td><td>Tempo de limpeza após o atendimento</td><td>5 minutos</td></tr>
+<tr><td></code>empresa_cfg_timezone<code></td><td>Fuso horário da empresa</td><td>America/Sao_Paulo</td></tr>
+<tr><td></code>billing_enabled<code></td><td>Se o sistema de cobrança está ativo</td><td>true/false</td></tr>
+<tr><td></code>prompt_key<code></td><td>Chave do template de IA a usar</td><td>prompt_julia_fane</td></tr>
+<tr><td></code>prompt_version<code></td><td>Versão do template de IA</td><td>2025-10-08-02</td></tr>
+</table>
+<strong>Exemplo Prático</strong>:
+</code>`<code>
+Configuração Julia Fane:
+<ul><li>Antecedência: 30 minutos</li>
+<li>Intervalo: 15 minutos</li>
+<li>Buffer pré: 0 minutos</li>
+<li>Buffer pós: 0 minutos</li>
+<li>Prompt personalizado: prompt_julia_fane v2025-10-08-02</li>
+</ul></code>`<code>
+
+---
+
+<h4></code>endereco<code> - Endereços</h4>
+
+<strong>Descrição</strong>: Armazena endereços de empresas e profissionais.
+
+</code>`<code>sql
+CREATE TABLE endereco (
+    endereco_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    cep varchar(8) NOT NULL,
+    logradouro varchar(200) NOT NULL,
+    numero varchar(20),
+    complemento varchar(100),
+    bairro varchar(100) NOT NULL,
+    cidade varchar(100) NOT NULL,
+    uf varchar(2) NOT NULL,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+</code>`<code>
+
+<strong>Observações</strong>:
+<ul><li>CEP sem hífen (apenas números)</li>
+<li>UF com 2 caracteres</li>
+<li>Timestamps automáticos de criação e atualização</li>
+</ul>
+---
+
+<h3>👥 Grupo: Profissionais e Serviços</h3>
+
+<h4></code>profissional<code> - Cadastro de Profissionais</h4>
+
+<strong>Descrição</strong>: Profissionais que prestam serviços nas empresas.
+
+</code>`<code>sql
+CREATE TABLE profissional (
+    profissional_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id uuid NOT NULL,
+    endereco_id uuid NOT NULL,
+    cep varchar(8) NOT NULL,
+    profissional_nome varchar(50) NOT NULL,
+    profissional_contato varchar(20) NOT NULL,
+    profissional_dt_criacao timestamptz DEFAULT now(),
+    profissional_dt_atualizacao timestamptz DEFAULT now(),
+    status varchar(20) DEFAULT 'ativo',
+    especialidade varchar(100),
+    email varchar(100),
+    observacoes text
+);
+</code>`<code>
+
+<strong>Características</strong>:
+<ul><li>Cada profissional pertence a uma empresa (</code>empresa_id<code>)</li>
+<li>Pode ter especialidade definida</li>
+<li>Status controla se está ativo ou inativo</li>
+<li>Possui endereço próprio</li>
+</ul>
+---
+
+<h4></code>servicos<code> - Catálogo de Serviços</h4>
+
+<strong>Descrição</strong>: Serviços oferecidos pelas empresas.
+
+</code>`<code>sql
+CREATE TABLE servicos (
+    servicos_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    servicos_nome varchar(255) NOT NULL,
+    servicos_duracao interval NOT NULL,
+    servicos_valor numeric(10,2) NOT NULL,
+    servicos_descricao varchar(255) NOT NULL,
+    status varchar(20) DEFAULT 'ativo'
+);
+</code>`<code>
+
+<strong>Exemplos de Serviços Reais</strong>:
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Serviço</td><td>Duração</td><td>Valor</td><td>Descrição</td></tr>
+<tr><td>---------</td><td>---------</td><td>-------</td><td>-----------</td></tr>
+<tr><td>Limpeza de pele</td><td>1h30</td><td>R$ 150,00</td><td>Limpeza de pele</td></tr>
+<tr><td>Design na pinça</td><td>20min</td><td>R$ 40,00</td><td>Design na pinça</td></tr>
+<tr><td>Escova</td><td>30min</td><td>R$ 60,00</td><td>Escova modeladora</td></tr>
+<tr><td>Baby Liss</td><td>1h</td><td>R$ 70,00</td><td>Cachos com babyliss</td></tr>
+<tr><td>Alongamento gel</td><td>4h</td><td>R$ 150,00</td><td>Alongamento em gel</td></tr>
+</table>
+<strong>Observações</strong>:
+<ul><li>Duração usa tipo </code>interval<code> do PostgreSQL</li>
+<li>Valores em formato decimal (10,2)</li>
+<li>Serviços podem ser ativados/desativados</li>
+</ul>
+---
+
+<h4></code>profissional_servico<code> - Serviços por Profissional</h4>
+
+<strong>Descrição</strong>: Define quais serviços cada profissional pode realizar, com possibilidade de personalização.
+
+</code>`<code>sql
+CREATE TABLE profissional_servico (
+    servicos_id uuid NOT NULL,
+    profissional_id uuid NOT NULL,
+    valor_personalizado numeric(10,2),
+    duracao_personalizada interval,
+    observacoes varchar(255) NOT NULL,
+    PRIMARY KEY (servicos_id, profissional_id)
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<li>Um serviço tem valor e duração padrão na tabela </code>servicos<code></li>
+<li>Se o profissional cobrar diferente, usa </code>valor_personalizado<code></li>
+<li>Se o profissional demorar mais/menos, usa </code>duracao_personalizada<code></li>
+<li>Se não houver personalização, usa os valores padrão</li>
+
+<strong>Exemplo</strong>:
+</code>`<code>
+Serviço: Limpeza de pele (padrão R$ 150,00 - 1h30)
+<ul><li>Profissional A: R$ 150,00 - 1h30 (usa padrão)</li>
+<li>Profissional B: R$ 180,00 - 2h (personalizado)</li>
+</ul></code>`<code>
+
+---
+
+<h3>⏰ Grupo: Horários</h3>
+
+<h4></code>horario_f<code> - Turnos de Trabalho</h4>
+
+<strong>Descrição</strong>: Define turnos de trabalho (manhã, tarde, noite, etc.).
+
+</code>`<code>sql
+CREATE TABLE horario_f (
+    horario_f_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    horario_f_turno varchar(100) NOT NULL
+);
+</code>`<code>
+
+<strong>Exemplos</strong>:
+<ul><li>Manhã (8h às 12h)</li>
+<li>Tarde (13h às 18h)</li>
+<li>Noite (18h às 22h)</li>
+</ul>
+---
+
+<h4></code>horario_det<code> - Detalhamento dos Horários</h4>
+
+<strong>Descrição</strong>: Define os horários específicos dentro de cada turno.
+
+</code>`<code>sql
+CREATE TABLE horario_det (
+    horario_det_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    horario_f_id uuid NOT NULL,
+    horario_def smallint NOT NULL,
+    horario_def_nome varchar(20) NOT NULL,
+    horario_det_inicio time(0) NOT NULL,
+    horario_det_fim time(0) NOT NULL,
+    UNIQUE (horario_f_id, horario_def, horario_det_inicio, horario_det_fim)
+);
+</code>`<code>
+
+<strong>Exemplo de Estrutura</strong>:
+</code>`<code>
+Turno: Manhã
+  - Segunda-feira: 08:00 - 12:00
+  - Terça-feira: 08:00 - 12:00
+  - Quarta-feira: 08:00 - 12:00
+</code>`<code>
+
+---
+
+<h4></code>profissional_horario<code> - Horários do Profissional</h4>
+
+<strong>Descrição</strong>: Relaciona profissionais com seus turnos de trabalho.
+
+</code>`<code>sql
+CREATE TABLE profissional_horario (
+    profissional_id uuid NOT NULL,
+    horario_f_id uuid NOT NULL,
+    PRIMARY KEY (profissional_id, horario_f_id)
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<ul><li>Um profissional pode ter múltiplos turnos</li>
+<li>Exemplo: Profissional trabalha manhã e tarde</li>
+</ul>
+---
+
+<h3>👤 Grupo: Clientes</h3>
+
+<h4></code>clientes<code> - Cadastro de Clientes</h4>
+
+<strong>Descrição</strong>: Clientes que agendam serviços nas empresas.
+
+</code>`<code>sql
+CREATE TABLE clientes (
+    clientes_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    clientes_nome varchar(50) NOT NULL,
+    clientes_telefone varchar(50) NOT NULL,
+    clientes_dt_criacao timestamptz DEFAULT now(),
+    empresa_id uuid
+);
+</code>`<code>
+
+<strong>Características</strong>:
+<ul><li>Isolamento por empresa</li>
+<li>Telefone pode ser identificador do WhatsApp (ex: </code>553799846648@s.whatsapp.net<code>)</li>
+<li>Cadastro automático no primeiro agendamento</li>
+</ul>
+<strong>Exemplo de Dados Reais</strong>:
+</code>`<code>
+Nome: Alex Lima
+Telefone: 553791426388@s.whatsapp.net
+Empresa: Deisa Evelyn Estética
+</code>`<code>
+
+---
+
+<h3>📅 Grupo: Agendamentos</h3>
+
+<h4></code>agendamento<code> - Agendamentos</h4>
+
+<strong>Descrição</strong>: Tabela principal que armazena todos os agendamentos do sistema.
+
+</code>`<code>sql
+CREATE TABLE agendamento (
+    agend_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    status_agend_id uuid NOT NULL,
+    agend_id_calendar text NOT NULL,
+    profissional_id uuid NOT NULL,
+    clientes_id uuid NOT NULL,
+    empresa_id uuid NOT NULL,
+    agend_data date NOT NULL,
+    agend_origem varchar(20) NOT NULL,
+    agend_created_at timestamptz DEFAULT now(),
+    agend_inicio timestamptz NOT NULL,
+    agend_fim timestamptz NOT NULL,
+    agend_valor numeric(8,2) NOT NULL,
+    periodo tstzrange GENERATED ALWAYS AS (tstzrange(agend_inicio, agend_fim, '[)')) STORED,
+    agend_protocolo varchar(50) UNIQUE
+);
+</code>`<code>
+
+<strong>Campos Importantes</strong>:
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Campo</td><td>Descrição</td><td>Exemplo</td></tr>
+<tr><td>-------</td><td>-----------</td><td>---------</td></tr>
+<tr><td></code>agend_id<code></td><td>ID único do agendamento</td><td>uuid</td></tr>
+<tr><td></code>agend_id_calendar<code></td><td>ID do evento no Google Calendar</td><td>kv4ar3u8dd64o6kqaq42n47jhs</td></tr>
+<tr><td></code>agend_origem<code></td><td>Origem do agendamento</td><td>whatsapp, web, app</td></tr>
+<tr><td></code>agend_data<code></td><td>Data do agendamento</td><td>2025-10-11</td></tr>
+<tr><td></code>agend_inicio<code></td><td>Data/hora de início</td><td>2025-10-11 16:00:00+00</td></tr>
+<tr><td></code>agend_fim<code></td><td>Data/hora de término</td><td>2025-10-11 16:40:00+00</td></tr>
+<tr><td></code>agend_valor<code></td><td>Valor total do agendamento</td><td>R$ 30,00</td></tr>
+<tr><td></code>periodo<code></td><td><strong>Campo calculado</strong> para consultas</td><td>[2025-10-11 16:00, 2025-10-11 16:40)</td></tr>
+<tr><td></code>agend_protocolo<code></td><td>Protocolo único para o cliente</td><td>THD-8360</td></tr>
+</table>
+<strong>Campo Especial: </code>periodo<code></strong>
+
+Este é um campo <strong>calculado automaticamente</strong> usando o tipo </code>tstzrange<code> do PostgreSQL:
+<ul><li>Facilita consultas de conflito de horários</li>
+<li>Permite verificar se um horário está ocupado</li>
+<li>Usa notação matemática: </code>[<code> inclui, </code>)<code> exclui</li>
+</ul>
+<strong>Exemplo de Consulta de Conflito</strong>:
+</code>`<code>sql
+-- Verifica se há conflito de horário
+SELECT * FROM agendamento 
+WHERE profissional_id = 'xxx' 
+  AND periodo && tstzrange('2025-10-11 16:00', '2025-10-11 17:00');
+</code>`<code>
+
+---
+
+<h4></code>agendamento_servico<code> - Serviços do Agendamento</h4>
+
+<strong>Descrição</strong>: Relaciona agendamentos com os serviços solicitados. Um agendamento pode ter múltiplos serviços.
+
+</code>`<code>sql
+CREATE TABLE agendamento_servico (
+    agend_id uuid NOT NULL,
+    servicos_id uuid NOT NULL,
+    ordem smallint DEFAULT 1,
+    valor_aplicado numeric(10,2) NOT NULL,
+    duracao_aplicada interval NOT NULL,
+    observacao text,
+    profissional_id uuid NOT NULL,
+    PRIMARY KEY (agend_id, servicos_id, ordem)
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<li>Um agendamento pode ter vários serviços</li>
+<li>Cada serviço tem uma ordem de execução</li>
+<li>Valores e durações são "congelados" no momento do agendamento</li>
+<li>Permite observações específicas por serviço</li>
+
+<strong>Exemplo</strong>:
+</code>`<code>
+Agendamento #123:
+  1. Limpeza de pele - R$ 150,00 - 1h30
+  2. Design na pinça - R$ 40,00 - 20min
+  Total: R$ 190,00 - 1h50
+</code>`<code>
+
+---
+
+<h4></code>status_agend<code> - Status dos Agendamentos</h4>
+
+<strong>Descrição</strong>: Define os possíveis status de um agendamento.
+
+</code>`<code>sql
+CREATE TABLE status_agend (
+    status_agend_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    status_agend_nome varchar(30) NOT NULL
+);
+</code>`<code>
+
+<strong>Status Identificados no Sistema</strong>:
+<ul><li>✅ <strong>Agendado</strong>: Agendamento criado</li>
+<li>✅ <strong>Confirmado</strong>: Cliente confirmou presença</li>
+<li>✅ <strong>Avisado</strong>: Cliente foi avisado/lembrado</li>
+<li>✅ <strong>Concluído</strong>: Atendimento realizado</li>
+<li>❌ <strong>Cancelado</strong>: Agendamento cancelado</li>
+</ul>
+---
+
+<h3>🔗 Grupo: Integração</h3>
+
+<h4></code>gcalendar<code> - Integração Google Calendar</h4>
+
+<strong>Descrição</strong>: Armazena informações de integração com Google Calendar.
+
+</code>`<code>sql
+CREATE TABLE gcalendar (
+    profissional_id uuid NOT NULL,
+    gcalendar_id text PRIMARY KEY,
+    gcalendar_email citext,
+    UNIQUE (gcalendar_id)
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<ul><li>Cada profissional pode ter um calendário do Google vinculado</li>
+<li></code>gcalendar_id<code>: ID do calendário no Google</li>
+<li></code>gcalendar_email<code>: Email associado ao calendário</li>
+<li>Tipo </code>citext<code>: Case-insensitive text (email não diferencia maiúsculas)</li>
+</ul>
+---
+
+<h4></code>contexto_sessao<code> - Contexto de Conversas</h4>
+
+<strong>Descrição</strong>: Mantém o contexto das conversas do WhatsApp para processamento de IA.
+
+</code>`<code>sql
+CREATE TABLE contexto_sessao (
+    session_id text PRIMARY KEY,
+    empresa_id uuid NOT NULL,
+    ultimo_intent text,
+    ultimo_action text,
+    ultimo_service_id uuid,
+    ultimo_service_name text,
+    ultimo_profissional text,
+    ultimo_date date,
+    ultimo_start text,
+    status text,
+    updated_at timestamp DEFAULT now()
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<li>Cada sessão do WhatsApp tem um ID único</li>
+<li>Sistema armazena o último contexto da conversa</li>
+<li>IA usa esse contexto para entender a continuação da conversa</li>
+<li>Exemplo: Se cliente disse "quero agendar limpeza de pele", próxima mensagem já sabe o serviço</li>
+
+<strong>Campos de Contexto</strong>:
+<ul><li></code>ultimo_intent<code>: Última intenção (schedule, cancel, reschedule)</li>
+<li></code>ultimo_action<code>: Última ação (ask_missing_info, create_event)</li>
+<li></code>ultimo_service_id<code>: ID do último serviço mencionado</li>
+<li></code>ultimo_profissional<code>: Último profissional mencionado</li>
+<li></code>ultimo_date<code>: Última data mencionada</li>
+</ul>
+---
+
+<h4></code>ai_prompt_templates<code> - Templates de IA</h4>
+
+<strong>Descrição</strong>: Armazena templates de prompts para o sistema de IA processar linguagem natural.
+
+</code>`<code>sql
+CREATE TABLE ai_prompt_templates (
+    key text NOT NULL,
+    version text NOT NULL,
+    template_text text NOT NULL,
+    PRIMARY KEY (key, version)
+);
+</code>`<code>
+
+<strong>Templates Identificados</strong>:
+<ul><li></code>prompt_agendamento<code> (v2025-08-26-01, v2025-08-26-02)</li>
+<li></code>prompt_julia_fane<code> (v2025-10-08-01, v2025-10-08-02)</li>
+</ul>
+<strong>Observações</strong>:
+<ul><li>Permite versionamento de prompts</li>
+<li>Cada empresa pode usar um prompt diferente</li>
+<li>Templates são longos (contêm instruções completas para a IA)</li>
+</ul>
+---
+
+<h3>🔐 Grupo: Autenticação e Controle</h3>
+
+<h4></code>login<code> - Usuários do Sistema</h4>
+
+<strong>Descrição</strong>: Sistema de autenticação para acesso ao sistema.
+
+</code>`<code>sql
+CREATE TABLE login (
+    login_id uuid PRIMARY KEY,
+    nivel_acesso_id uuid NOT NULL,
+    empresa_id uuid NOT NULL,
+    login citext NOT NULL,
+    email citext NOT NULL,
+    senha text NOT NULL,
+    created timestamptz DEFAULT now(),
+    nome varchar(120) NOT NULL
+);
+</code>`<code>
+
+<strong>Características</strong>:
+<ul><li>Isolamento por empresa</li>
+<li>Login e email case-insensitive (citext)</li>
+<li>Senha deve ser armazenada criptografada (hash)</li>
+<li>Níveis de acesso configuráveis</li>
+</ul>
+---
+
+<h4></code>nivel_acesso<code> - Níveis de Permissão</h4>
+
+<strong>Descrição</strong>: Define níveis de acesso ao sistema.
+
+</code>`<code>sql
+CREATE TABLE nivel_acesso (
+    nivel_acesso_id uuid PRIMARY KEY,
+    nivel_acesso_ varchar(20) NOT NULL
+);
+</code>`<code>
+
+<strong>Possíveis Níveis</strong>:
+<ul><li>Administrador</li>
+<li>Gerente</li>
+<li>Profissional</li>
+<li>Recepcionista</li>
+</ul>
+---
+
+<h4></code>instancia<code> - Instâncias WhatsApp</h4>
+
+<strong>Descrição</strong>: Instâncias de WhatsApp para multi-tenancy. <strong>Esta é a chave para identificação da empresa no fluxo de mensagens</strong>.
+
+</code>`<code>sql
+CREATE TABLE instancia (
+    instancia_id uuid PRIMARY KEY,
+    empresa_id uuid NOT NULL,
+    instancia_nome varchar(30) NOT NULL,
+    instancia_observacao varchar(255) NOT NULL,
+    instancia_dt_criacao timestamptz DEFAULT now(),
+    instancia_dt_atualizacao timestamptz DEFAULT now()
+);
+</code>`<code>
+
+<strong>Como Funciona</strong>:
+<ul><li>Cada empresa pode ter uma ou mais instâncias de WhatsApp</li>
+<li>Permite múltiplos números de atendimento por empresa</li>
+<li><strong>IMPORTANTE</strong>: Quando uma mensagem chega via WhatsApp, o sistema identifica a empresa através do </code>instancia_id<code></li>
+<li>O </code>instancia_id<code> é vinculado ao número/bot de WhatsApp que recebeu a mensagem</li>
+<li>A partir do </code>instancia_id<code>, o sistema busca o </code>empresa_id<code> correspondente</li>
+</ul>
+<strong>Fluxo de Identificação</strong>:
+</code>`<code>
+Mensagem WhatsApp recebida no número +55 37 99949-6932
+    ↓
+Sistema identifica instancia_id (ID da instância vinculada a este número)
+    ↓
+Consulta: SELECT empresa_id FROM instancia WHERE instancia_id = 'xxx'
+    ↓
+Retorna: empresa_id = '9ce11fb2-4440-4586-8ec5-fef4e22321e1'
+    ↓
+Empresa identificada: "Espaço Pamela Moraes"
+    ↓
+Todas as operações são feitas no contexto dessa empresa
+</code>`<code>
+
+<strong>Exemplo Real do Banco</strong>:
+</code>`<code>
+Instância: uuid-da-instancia-pamela
+Empresa: Espaço Pamela Moraes (9ce11fb2-4440-4586-8ec5-fef4e22321e1)
+Número WhatsApp: 37999496932
+Agente: 3798704311
+</code>`<code>
+
+---
+
+<h3>💰 Grupo: Billing</h3>
+
+<h4></code>contrato<code> - Contratos de Cobrança</h4>
+
+<strong>Descrição</strong>: Contratos de cobrança com as empresas.
+
+</code>`<code>sql
+CREATE TABLE contrato (
+    contrato_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id uuid NOT NULL,
+    contrato_status varchar(20) NOT NULL,
+    contrato_valor numeric(8,2) NOT NULL,
+    contrato_nome text NOT NULL,
+    created_at timestamptz NOT NULL,
+    contrato_periodicidade varchar(20) DEFAULT 'Mensal',
+    contrato_vigencia_inicio date,
+    contrato_proxima_cobranca date
+);
+</code>`<code>
+
+<strong>Exemplo de Contrato</strong>:
+</code>`<code>
+Plano: Básico
+Valor: R$ 59,90
+Periodicidade: Mensal
+Status: Ativo
+Próxima cobrança: 2025-09-23
+</code>`<code>
+
+---
+
+<h2>🔄 Fluxo de Agendamento</h2>
+
+<h3>Passo a Passo de um Agendamento via WhatsApp</h3>
+
+</code>`<code>
+<li>Cliente envia mensagem para o WhatsApp</li>
+   ↓
+<li>Sistema identifica a instância que recebeu a mensagem (instancia_id)</li>
+   ↓
+<li>Sistema busca a empresa através da tabela 'instancia' (empresa_id)</li>
+   ↓
+<li>Sistema consulta 'contexto_sessao' para entender continuação da conversa</li>
+   ↓
+<li>IA processa a mensagem usando o template configurado (prompt_key/prompt_version)</li>
+   ↓
+<li>Sistema valida disponibilidade do profissional (consulta horários e agendamentos)</li>
+   ↓
+<li>Sistema cria registro em 'agendamento' (com todos os dados do agendamento)</li>
+   ↓
+<li>Sistema cria registros em 'agendamento_servico' (serviços solicitados)</li>
+   ↓
+<li>Sistema cria evento no Google Calendar (integração gcalendar)</li>
+   ↓
+<li>Sistema gera protocolo único (agend_protocolo)</li>
+   ↓
+<li>Sistema atualiza 'contexto_sessao' (para próximas interações)</li>
+   ↓
+<li>Sistema envia confirmação ao cliente via WhatsApp</li>
+</code>`<code>
+
+<strong>Detalhamento Técnico</strong>:
+
+<strong>Passo 2-3</strong>: Identificação da Empresa
+</code>`<code>sql
+-- Quando mensagem chega, sistema faz:
+SELECT i.empresa_id, e.empresa_nome, e.empresa_cfg_id
+FROM instancia i
+JOIN empresa e ON e.empresa_id = i.empresa_id
+WHERE i.instancia_id = '<id_da_instancia_que_recebeu>';
+</code>`<code>
+
+<strong>Passo 4</strong>: Buscar Contexto da Sessão
+</code>`<code>sql
+-- Busca contexto anterior da conversa
+SELECT * FROM contexto_sessao
+WHERE session_id = '<telefone_do_cliente>'
+  AND empresa_id = '<empresa_id>';
+</code>`<code>
+
+<strong>Passo 5</strong>: Buscar Configuração de IA
+</code>`<code>sql
+-- Busca template de prompt configurado para a empresa
+SELECT apt.template_text
+FROM empresa e
+JOIN empresa_cfg ec ON ec.empresa_cfg_id = e.empresa_cfg_id
+JOIN ai_prompt_templates apt ON apt.key = ec.prompt_key 
+                             AND apt.version = ec.prompt_version
+WHERE e.empresa_id = '<empresa_id>';
+</code>`<code>
+
+<strong>Passo 6</strong>: Validar Disponibilidade
+</code>`<code>sql
+-- Verifica se profissional está disponível no horário
+SELECT COUNT(*) FROM agendamento
+WHERE profissional_id = '<profissional_id>'
+  AND status_agend_id NOT IN (
+    SELECT status_agend_id FROM status_agend 
+    WHERE status_agend_nome = 'Cancelado'
+  )
+  AND periodo && tstzrange(
+    '<data_hora_inicio>'::timestamptz, 
+    '<data_hora_fim>'::timestamptz
+  );
+-- Se COUNT = 0, horário está disponível
+</code>`<code>
+
+<h3>Exemplo Prático</h3>
+
+<strong>Conversa</strong>:
+</code>`<code>
+Cliente: "Oi, quero agendar limpeza de pele"
+Bot: "Ótimo! Para qual dia você gostaria?"
+Cliente: "Amanhã às 14h"
+Bot: "Perfeito! Confirmando agendamento para dia 11/10 às 14h00 
+      com a profissional Pamela Moraes. Limpeza de pele - R$ 150,00.
+      Protocolo: AGD-1757374532047-8338"
+</code>`<code>
+
+<strong>Dados Criados</strong>:
+</code>`<code>sql
+-- Tabela: agendamento
+agend_id: c335d819-e0aa-48f1-a116-a94be23c74b5
+status: Agendado
+profissional: Pamela Moraes
+cliente: Alex Lima
+data: 2025-10-11
+inicio: 2025-10-11 14:00:00
+fim: 2025-10-11 15:30:00
+valor: 150.00
+protocolo: AGD-1757374532047-8338
+
+-- Tabela: agendamento_servico
+servico: Limpeza de pele
+valor_aplicado: 150.00
+duracao_aplicada: 01:30:00
+</code>`<code>
+
+---
+
+<h2>📐 Relacionamentos e Integridade</h2>
+
+<h3>Diagrama de Relacionamentos Principais</h3>
+
+</code>`<code>
+instancia (Ponto de entrada via WhatsApp)
+  ↓
+  └── empresa_id (Identifica a empresa)
+        ↓
+empresa (Entidade raiz multi-tenant)
+  ├── empresa_cfg (1:1) → Configurações
+  │   └── ai_prompt_templates (N:1) → Templates de IA
+  ├── endereco (N:1) → Endereço da empresa
+  ├── instancia (1:N) → Instâncias WhatsApp
+  ├── clientes (1:N) → Clientes da empresa
+  ├── profissional (1:N) → Profissionais
+  │   ├── endereco (N:1)
+  │   ├── profissional_horario (N:N) ← horario_f
+  │   │   └── horario_det (1:N)
+  │   ├── profissional_servico (N:N) ← servicos
+  │   └── gcalendar (1:1) → Integração Google Calendar
+  ├── agendamento (1:N) → Agendamentos
+  │   ├── clientes (N:1)
+  │   ├── profissional (N:1)
+  │   ├── status_agend (N:1)
+  │   └── agendamento_servico (1:N)
+  │       ├── servicos (N:1)
+  │       └── profissional_servico (N:1)
+  ├── contexto_sessao (1:N) → Contexto das conversas
+  ├── contrato (1:N) → Contratos de cobrança
+  └── login (1:N) → Usuários do sistema
+      └── nivel_acesso (N:1)
+</code>`<code>
+
+<strong>Fluxo de Dados no Agendamento</strong>:
+</code>`<code>
+<li>Mensagem WhatsApp → instancia → empresa</li>
+<li>empresa → empresa_cfg → ai_prompt_templates</li>
+<li>empresa → contexto_sessao (busca contexto)</li>
+<li>empresa → profissional → profissional_servico</li>
+<li>empresa → agendamento (cria)</li>
+<li>agendamento → agendamento_servico (cria)</li>
+<li>profissional → gcalendar (sincroniza)</li>
+</code>`<code>
+
+<h3>Regras de Integridade</h3>
+
+<li><strong>Cascata em Deleção</strong>:</li>
+   - Deletar empresa → deleta clientes
+   - Deletar profissional → deleta horários e serviços vinculados
+   - Deletar agendamento → deleta serviços do agendamento
+
+<li><strong>Restrições</strong>:</li>
+   - Não pode deletar serviço se houver agendamento
+   - Não pode deletar status se houver agendamento usando
+
+---
+
+<h2>⚙️ Funções e Triggers</h2>
+
+<h3>Funções do Banco</h3>
+
+<h4>1. </code>ags_set_prof()<code></h4>
+<strong>Propósito</strong>: Define automaticamente o profissional em </code>agendamento_servico<code>.
+
+</code>`<code>sql
+CREATE FUNCTION ags_set_prof() RETURNS trigger AS $$
+BEGIN
+  IF NEW.profissional_id IS NULL THEN
+    SELECT a.profissional_id INTO NEW.profissional_id
+    FROM agendamento a
+    WHERE a.agend_id = NEW.agend_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+</code>`<code>
+
+<strong>Como Funciona</strong>: Se não informar o profissional ao criar um serviço do agendamento, busca automaticamente do agendamento principal.
+
+---
+
+<h4>2. </code>is_empresa_adimplente(uuid)<code></h4>
+<strong>Propósito</strong>: Verifica se empresa está em dia com pagamentos.
+
+</code>`<code>sql
+CREATE FUNCTION is_empresa_adimplente(p_empresa uuid) RETURNS boolean AS $$
+  SELECT true; -- stub temporário
+$$ LANGUAGE sql STABLE;
+</code>`<code>
+
+<strong>Uso</strong>: Pode ser usado para bloquear agendamentos de empresas inadimplentes.
+
+---
+
+<h4>3. </code>set_updated_at()<code> e </code>update_updated_at_column()<code></h4>
+<strong>Propósito</strong>: Atualiza automaticamente timestamps de modificação.
+
+<strong>Como Funciona</strong>: Triggers que atualizam campos </code>*_dt_atualizacao<code> ou </code>updated_at<code> automaticamente.
+
+---
+
+<h2>📊 Índices para Performance</h2>
+
+<h3>Índices Críticos</h3>
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Índice</td><td>Tabela</td><td>Campos</td><td>Propósito</td></tr>
+<tr><td>--------</td><td>--------</td><td>--------</td><td>-----------</td></tr>
+<tr><td></code>ix_agendamento_empresa<code></td><td>agendamento</td><td>empresa_id</td><td>Buscar agendamentos por empresa</td></tr>
+<tr><td></code>ix_agendamento_cliente<code></td><td>agendamento</td><td>clientes_id</td><td>Buscar agendamentos por cliente</td></tr>
+<tr><td></code>ix_agendamento_status<code></td><td>agendamento</td><td>status_agend_id</td><td>Filtrar por status</td></tr>
+<tr><td></code>prof_idx_empresa<code></td><td>profissional</td><td>empresa_id</td><td>Buscar profissionais por empresa</td></tr>
+<tr><td></code>ps_idx_prof<code></td><td>profissional_servico</td><td>profissional_id</td><td>Buscar serviços do profissional</td></tr>
+</table>
+<h3>Consultas Otimizadas</h3>
+
+<strong>Buscar agendamentos de uma empresa</strong>:
+</code>`<code>sql
+SELECT * FROM agendamento 
+WHERE empresa_id = 'xxx' 
+ORDER BY agend_data DESC;
+-- Usa: ix_agendamento_empresa
+</code>`<code>
+
+<strong>Verificar disponibilidade de profissional</strong>:
+</code>`<code>sql
+SELECT * FROM agendamento 
+WHERE profissional_id = 'xxx' 
+  AND periodo && tstzrange('2025-10-11 14:00', '2025-10-11 15:30');
+-- Usa: campo calculado periodo
+</code>`<code>
+
+---
+
+<h2>🎯 Regras de Negócio</h2>
+
+<h3>1. Isolamento Multi-tenant</h3>
+
+<strong>Regra</strong>: Todas as consultas devem filtrar por </code>empresa_id<code>.
+
+<strong>Implementação</strong>:
+</code>`<code>sql
+-- ✅ CORRETO
+SELECT * FROM clientes WHERE empresa_id = 'xxx';
+
+-- ❌ ERRADO (acessa dados de todas as empresas)
+SELECT * FROM clientes;
+</code>`<code>
+
+---
+
+<h3>2. Validação de Horários</h3>
+
+<strong>Regras</strong>:
+<li>Verificar antecedência mínima (</code>empresa_cfg_anteced_minutos<code>)</li>
+<li>Verificar intervalo entre agendamentos (</code>empresa_cfg_interv_minutos<code>)</li>
+<li>Considerar buffers pré e pós atendimento</li>
+<li>Verificar conflito de horários do profissional</li>
+
+<strong>Exemplo de Validação</strong>:
+</code>`<code>sql
+-- Verificar se horário está disponível
+SELECT COUNT(*) FROM agendamento
+WHERE profissional_id = 'xxx'
+  AND status_agend_id NOT IN (SELECT status_agend_id FROM status_agend WHERE status_agend_nome = 'Cancelado')
+  AND periodo && tstzrange('2025-10-11 14:00', '2025-10-11 15:30');
+-- Se COUNT = 0, horário está livre
+</code>`<code>
+
+---
+
+<h3>3. Cálculo de Valor Total</h3>
+
+<strong>Regra</strong>: Valor do agendamento = soma dos valores dos serviços.
+
+<strong>Implementação</strong>:
+</code>`<code>sql
+-- Calcular valor total
+SELECT SUM(valor_aplicado) FROM agendamento_servico
+WHERE agend_id = 'xxx';
+</code>`<code>
+
+---
+
+<h3>4. Cálculo de Duração Total</h3>
+
+<strong>Regra</strong>: Duração = soma das durações dos serviços + intervalos + buffers.
+
+<strong>Exemplo</strong>:
+</code>`<code>
+Serviço 1: 1h30
+Serviço 2: 20min
+Intervalo: 15min
+Buffer pré: 5min
+Buffer pós: 5min
+Total: 2h15min
+</code>`<code>
+
+---
+
+<h3>5. Protocolo Único</h3>
+
+<strong>Regra</strong>: Cada agendamento deve ter protocolo único para o cliente.
+
+<strong>Formato Identificado</strong>:
+<ul><li></code>THD-8360<code></li>
+<li></code>AGD-1757374532047-8338<code></li>
+</ul>
+<strong>Geração</strong>: Pode usar timestamp + random ou sequencial.
+
+---
+
+<h3>6. Status do Agendamento</h3>
+
+<strong>Fluxo de Status</strong>:
+</code>`<code>
+Agendado → Confirmado → Avisado → Concluído
+    ↓
+Cancelado (pode cancelar em qualquer etapa)
+</code>`<code>
+
+---
+
+<h2>🛠️ Guia de Desenvolvimento</h2>
+
+<h3>Arquitetura Recomendada</h3>
+
+</code>`<code>
+┌─────────────────────────────────────────┐
+│         Frontend (Web/Mobile)           │
+│  - Interface de agendamento             │
+│  - Gestão de profissionais              │
+│  - Relatórios                           │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│            API REST                     │
+│  - Autenticação JWT                     │
+│  - Validação de permissões              │
+│  - Lógica de negócio                    │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│         Camada de Serviços              │
+│  - Serviço de Agendamento               │
+│  - Serviço de WhatsApp                  │
+│  - Serviço de Google Calendar           │
+│  - Serviço de IA                        │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│         PostgreSQL 16.9                 │
+└─────────────────────────────────────────┘
+</code>`<code>
+
+---
+
+<h3>Endpoints Sugeridos</h3>
+
+<h4>Empresas</h4>
+<ul><li></code>GET /api/empresas<code> - Listar empresas</li>
+<li></code>GET /api/empresas/:id<code> - Detalhes da empresa</li>
+<li></code>POST /api/empresas<code> - Criar empresa</li>
+<li></code>PUT /api/empresas/:id<code> - Atualizar empresa</li>
+<li></code>DELETE /api/empresas/:id<code> - Deletar empresa</li>
+</ul>
+<h4>Profissionais</h4>
+<ul><li></code>GET /api/empresas/:empresaId/profissionais<code> - Listar profissionais</li>
+<li></code>GET /api/profissionais/:id<code> - Detalhes do profissional</li>
+<li></code>POST /api/profissionais<code> - Criar profissional</li>
+<li></code>PUT /api/profissionais/:id<code> - Atualizar profissional</li>
+<li></code>GET /api/profissionais/:id/horarios<code> - Horários do profissional</li>
+<li></code>GET /api/profissionais/:id/servicos<code> - Serviços do profissional</li>
+</ul>
+<h4>Agendamentos</h4>
+<ul><li></code>GET /api/empresas/:empresaId/agendamentos<code> - Listar agendamentos</li>
+<li></code>GET /api/agendamentos/:id<code> - Detalhes do agendamento</li>
+<li></code>POST /api/agendamentos<code> - Criar agendamento</li>
+<li></code>PUT /api/agendamentos/:id<code> - Atualizar agendamento</li>
+<li></code>DELETE /api/agendamentos/:id<code> - Cancelar agendamento</li>
+<li></code>GET /api/agendamentos/:id/protocolo/:protocolo<code> - Buscar por protocolo</li>
+<li></code>POST /api/agendamentos/disponibilidade<code> - Verificar disponibilidade</li>
+</ul>
+<h4>Clientes</h4>
+<ul><li></code>GET /api/empresas/:empresaId/clientes<code> - Listar clientes</li>
+<li></code>GET /api/clientes/:id<code> - Detalhes do cliente</li>
+<li></code>GET /api/clientes/:id/agendamentos<code> - Agendamentos do cliente</li>
+</ul>
+<h4>Serviços</h4>
+<ul><li></code>GET /api/servicos<code> - Listar serviços</li>
+<li></code>GET /api/servicos/:id<code> - Detalhes do serviço</li>
+<li></code>POST /api/servicos<code> - Criar serviço</li>
+<li></code>PUT /api/servicos/:id<code> - Atualizar serviço</li>
+</ul>
+---
+
+<h3>Segurança</h3>
+
+<h4>1. Autenticação JWT</h4>
+
+<strong>Estrutura do Token</strong>:
+</code>`<code>json
+{
+  "user_id": "uuid",
+  "empresa_id": "uuid",
+  "nivel_acesso": "administrador",
+  "exp": 1234567890
+}
+</code>`<code>
+
+<strong>Middleware</strong>:
+</code>`<code>javascript
+// Exemplo em Node.js
+function verificarEmpresa(req, res, next) {
+  const empresaToken = req.user.empresa_id;
+  const empresaRequisicao = req.params.empresaId;
+  
+  if (empresaToken !== empresaRequisicao) {
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+  
+  next();
+}
+</code>`<code>
+
+---
+
+<h4>2. Validação de Permissões</h4>
+
+<strong>Níveis de Acesso</strong>:
+<ul><li><strong>Administrador</strong>: Acesso total à sua empresa</li>
+<li><strong>Gerente</strong>: Gestão de profissionais e agendamentos</li>
+<li><strong>Profissional</strong>: Visualizar seus próprios agendamentos</li>
+<li><strong>Recepcionista</strong>: Criar e gerenciar agendamentos</li>
+</ul>
+---
+
+<h4>3. Sanitização de Dados</h4>
+
+<strong>Sempre validar</strong>:
+<ul><li>UUIDs válidos</li>
+<li>Datas no formato correto</li>
+<li>Valores numéricos positivos</li>
+<li>Telefones no formato esperado</li>
+<li>CEPs válidos</li>
+</ul>
+---
+
+<h3>Performance</h3>
+
+<h4>1. Paginação</h4>
+
+<strong>Sempre paginar listagens</strong>:
+</code>`<code>sql
+SELECT * FROM agendamento 
+WHERE empresa_id = 'xxx'
+ORDER BY agend_data DESC
+LIMIT 20 OFFSET 0;
+</code>`<code>
+
+---
+
+<h4>2. Cache</h4>
+
+<strong>Cachear</strong>:
+<ul><li>Configurações da empresa</li>
+<li>Lista de serviços</li>
+<li>Lista de profissionais</li>
+<li>Templates de IA</li>
+</ul>
+<strong>TTL Sugerido</strong>: 5-15 minutos
+
+---
+
+<h4>3. Consultas Otimizadas</h4>
+
+<strong>Use índices existentes</strong>:
+</code>`<code>sql
+-- ✅ BOM (usa índice)
+WHERE empresa_id = 'xxx' AND status_agend_id = 'yyy'
+
+-- ❌ RUIM (não usa índice)
+WHERE UPPER(empresa_nome) = 'XXX'
+</code>`<code>
+
+---
+
+<h3>Integração WhatsApp</h3>
+
+<h4>Fluxo de Mensagem</h4>
+
+<li><strong>Webhook recebe mensagem</strong> do WhatsApp</li>
+<li><strong>Identifica instância</strong> que recebeu a mensagem (</code>instancia_id<code>)</li>
+<li><strong>Busca empresa</strong> através da tabela </code>instancia<code> (</code>empresa_id<code>)</li>
+<li><strong>Busca ou cria cliente</strong> na tabela </code>clientes<code></li>
+<li><strong>Busca contexto da sessão</strong> em </code>contexto_sessao<code></li>
+<li><strong>Busca configurações</strong> da empresa em </code>empresa_cfg<code></li>
+<li><strong>Envia para IA processar</strong> usando o template configurado</li>
+<li><strong>Executa ação</strong> (criar agendamento, buscar horários, etc.)</li>
+<li><strong>Atualiza contexto</strong> em </code>contexto_sessao<code></li>
+<li><strong>Envia resposta</strong> via WhatsApp</li>
+
+<h4>Estrutura de Dados do Webhook</h4>
+
+Quando uma mensagem chega, o webhook recebe algo como:
+
+</code>`<code>json
+{
+  "instanceId": "uuid-da-instancia",
+  "from": "553799846648@s.whatsapp.net",
+  "message": "Quero agendar limpeza de pele",
+  "timestamp": 1234567890
+}
+</code>`<code>
+
+<h4>Processamento</h4>
+
+</code>`<code>sql
+-- 1. Identificar empresa pela instância
+SELECT e.<em>, ec.</em>, i.instancia_nome
+FROM instancia i
+JOIN empresa e ON e.empresa_id = i.empresa_id
+JOIN empresa_cfg ec ON ec.empresa_cfg_id = e.empresa_cfg_id
+WHERE i.instancia_id = '<instanceId>';
+
+-- 2. Buscar ou criar cliente
+INSERT INTO clientes (clientes_nome, clientes_telefone, empresa_id)
+VALUES ('Nome do Cliente', '553799846648@s.whatsapp.net', '<empresa_id>')
+ON CONFLICT DO NOTHING;
+
+-- 3. Buscar/criar contexto da sessão
+INSERT INTO contexto_sessao (session_id, empresa_id, status)
+VALUES ('553799846648@s.whatsapp.net', '<empresa_id>', 'aguardando')
+ON CONFLICT (session_id) DO UPDATE SET updated_at = now();
+</code>`<code>
+
+---
+
+<h3>Integração Google Calendar</h3>
+
+<h4>Sincronização</h4>
+
+<strong>Ao criar agendamento</strong>:
+<li>Criar evento no Google Calendar</li>
+<li>Salvar </code>gcalendar_id<code> no agendamento</li>
+<li>Adicionar link do evento na confirmação</li>
+
+<strong>Ao atualizar agendamento</strong>:
+<li>Atualizar evento no Google Calendar</li>
+<li>Notificar cliente</li>
+
+<strong>Ao cancelar agendamento</strong>:
+<li>Deletar evento do Google Calendar</li>
+<li>Atualizar status para "Cancelado"</li>
+
+---
+
+<h3>Processamento de IA</h3>
+
+<h4>Templates de Prompt</h4>
+
+<strong>Estrutura</strong>:
+<ul><li>Instruções de formato de saída</li>
+<li>Contexto da empresa</li>
+<li>Serviços disponíveis</li>
+<li>Profissionais disponíveis</li>
+<li>Horários disponíveis</li>
+<li>Exemplos de conversação</li>
+</ul>
+<strong>Versionamento</strong>:
+<ul><li>Manter histórico de versões</li>
+<li>Permitir rollback</li>
+<li>Testar novas versões em ambiente de staging</li>
+</ul>
+---
+
+<h2>📈 Monitoramento e Logs</h2>
+
+<h3>Métricas Importantes</h3>
+
+<li><strong>Agendamentos</strong>:</li>
+   - Total de agendamentos por dia/semana/mês
+   - Taxa de cancelamento
+   - Taxa de confirmação
+   - Tempo médio de resposta
+
+<li><strong>Profissionais</strong>:</li>
+   - Taxa de ocupação
+   - Serviços mais realizados
+   - Avaliações (se implementado)
+
+<li><strong>Sistema</strong>:</li>
+   - Tempo de resposta da API
+   - Erros de integração
+   - Uso de cache
+
+---
+
+<h3>Logs Recomendados</h3>
+
+<strong>Registrar</strong>:
+<ul><li>Criação/atualização/cancelamento de agendamentos</li>
+<li>Tentativas de acesso não autorizado</li>
+<li>Erros de integração (WhatsApp, Google Calendar)</li>
+<li>Falhas de processamento de IA</li>
+</ul>
+---
+
+<h2>🚀 Próximos Passos</h2>
+
+<h3>Fase 1: Setup Inicial</h3>
+<li>✅ Escolher stack tecnológico (Node.js, Python, Java, etc.)</li>
+<li>✅ Configurar ambiente de desenvolvimento</li>
+<li>✅ Criar estrutura do projeto</li>
+<li>✅ Configurar conexão com banco de dados</li>
+
+<h3>Fase 2: API Base</h3>
+<li>✅ Implementar autenticação JWT</li>
+<li>✅ Criar endpoints de empresas</li>
+<li>✅ Criar endpoints de profissionais</li>
+<li>✅ Criar endpoints de serviços</li>
+<li>✅ Criar endpoints de clientes</li>
+
+<h3>Fase 3: Agendamentos</h3>
+<li>✅ Implementar lógica de validação de horários</li>
+<li>✅ Criar endpoints de agendamentos</li>
+<li>✅ Implementar cálculo de valores e durações</li>
+<li>✅ Implementar geração de protocolos</li>
+
+<h3>Fase 4: Integrações</h3>
+<li>✅ Integração WhatsApp</li>
+<li>✅ Integração Google Calendar</li>
+<li>✅ Integração IA para processamento de linguagem</li>
+
+<h3>Fase 5: Frontend</h3>
+<li>✅ Dashboard administrativo</li>
+<li>✅ Gestão de profissionais</li>
+<li>✅ Gestão de agendamentos</li>
+<li>✅ Relatórios</li>
+
+<h3>Fase 6: Testes e Deploy</h3>
+<li>✅ Testes unitários</li>
+<li>✅ Testes de integração</li>
+<li>✅ Testes de carga</li>
+<li>✅ Deploy em produção</li>
+
+---
+
+<h2>📚 Glossário</h2>
+
+<table border="1" cellpadding="5" cellspacing="0"><tr><td>Termo</td><td>Descrição</td></tr>
+<tr><td>-------</td><td>-----------</td></tr>
+<tr><td><strong>Multi-tenant</strong></td><td>Arquitetura onde múltiplos clientes (empresas) compartilham a mesma infraestrutura</td></tr>
+<tr><td><strong>UUID</strong></td><td>Identificador único universal (128 bits)</td></tr>
+<tr><td><strong>CITEXT</strong></td><td>Tipo de texto case-insensitive do PostgreSQL</td></tr>
+<tr><td><strong>TSTZRANGE</strong></td><td>Tipo de intervalo de timestamp com timezone</td></tr>
+<tr><td><strong>INTERVAL</strong></td><td>Tipo de duração de tempo do PostgreSQL</td></tr>
+<tr><td><strong>Trigger</strong></td><td>Função executada automaticamente em eventos do banco</td></tr>
+<tr><td><strong>Webhook</strong></td><td>Callback HTTP para notificações em tempo real</td></tr>
+<tr><td><strong>JWT</strong></td><td>JSON Web Token para autenticação</td></tr>
+</table>
+---
+
+<h2>🎯 Resumo: Pontos-Chave para Desenvolvimento</h2>
+
+<h3>1. Identificação da Empresa</h3>
+</code>`<code>
+✅ SEMPRE use instancia_id para identificar a empresa
+✅ Mensagem WhatsApp → instancia_id → empresa_id
+✅ Todas as queries devem filtrar por empresa_id
+</code>`<code>
+
+<h3>2. Fluxo de Agendamento</h3>
+</code>`<code>
+Webhook → Instância → Empresa → Contexto → IA → Validação → Criação → Google Calendar
+</code>`<code>
+
+<h3>3. Tabelas Críticas</h3>
+<ul><li><strong>instancia</strong>: Ponto de entrada (identifica empresa)</li>
+<li><strong>empresa</strong>: Entidade raiz (multi-tenant)</li>
+<li><strong>empresa_cfg</strong>: Configurações (antecedência, intervalos, prompts)</li>
+<li><strong>agendamento</strong>: Agendamentos (com campo calculado periodo)</li>
+<li><strong>contexto_sessao</strong>: Contexto das conversas (IA)</li>
+</ul>
+<h3>4. Validações Obrigatórias</h3>
+<ul><li>✅ Verificar antecedência mínima</li>
+<li>✅ Verificar disponibilidade do profissional (tstzrange)</li>
+<li>✅ Verificar horário de trabalho do profissional</li>
+<li>✅ Aplicar buffers pré e pós atendimento</li>
+<li>✅ Validar isolamento por empresa_id</li>
+</ul>
+<h3>5. Integrações</h3>
+<ul><li><strong>WhatsApp</strong>: Webhook → instancia_id → processamento</li>
+<li><strong>Google Calendar</strong>: Sincronização bidirecional</li>
+<li><strong>IA</strong>: Templates versionados por empresa</li>
+</ul>
+---
+
+<h2>📞 Suporte</h2>
+
+Para dúvidas sobre a estrutura do banco de dados ou desenvolvimento da aplicação, consulte:
+<ul><li>Arquivo de estrutura: </code>estrutura_banco.sql<code></li>
+<li>Backup de dados: </code>backup_25_10_25<code></li>
+<li>Esta documentação: </code>DOCUMENTACAO_BANCO_DADOS.md<code></li>
+</ul>
+---
+
+<h2>🔑 Conceito Mais Importante</h2>
+
+<strong>A tabela </code>instancia<code> é a chave para todo o sistema multi-tenant via WhatsApp!</strong>
+
+</code>`<code>
+┌─────────────────────────────────────────────────────────┐
+│  Mensagem WhatsApp → instancia_id → empresa_id          │
+│                                                         │
+│  SEM instancia_id = Não sabe qual empresa é            │
+│  COM instancia_id = Sistema funciona perfeitamente     │
+└─────────────────────────────────────────────────────────┘
+</code>``
+
+---
+
+<strong>Documentação gerada em</strong>: 2025-01-27  
+<strong>Versão do banco</strong>: PostgreSQL 16.9  
+<strong>Backup analisado</strong>: 2025-10-25  
+<strong>Última atualização</strong>: 2025-01-27
+</body>
+</html>

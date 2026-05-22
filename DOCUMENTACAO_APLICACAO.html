@@ -1,0 +1,2015 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentação Completa - Sistema de Agendamento AIResolve</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #10b981;
+            border-bottom: 3px solid #10b981;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h2 {
+            color: #059669;
+            border-bottom: 2px solid #d1fae5;
+            padding-bottom: 8px;
+            margin-top: 25px;
+        }
+        h3 {
+            color: #047857;
+            margin-top: 20px;
+        }
+        h4 {
+            color: #065f46;
+            margin-top: 15px;
+        }
+        code {
+            background-color: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            line-height: 1.4;
+        }
+        pre code {
+            background-color: transparent;
+            color: #f9fafb;
+            padding: 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #d1d5db;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #10b981;
+            color: white;
+            font-weight: bold;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        blockquote {
+            border-left: 4px solid #10b981;
+            padding-left: 15px;
+            margin-left: 0;
+            color: #6b7280;
+            font-style: italic;
+        }
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        a {
+            color: #10b981;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        hr {
+            border: none;
+            border-top: 2px solid #e5e7eb;
+            margin: 30px 0;
+        }
+    </style>
+</head>
+<body>
+<h1>📚 Documentação Completa - Sistema de Agendamento AIResolve</h1>
+<h2>📋 Índice</h2>
+<ol>
+<li><a href="#visão-geral">Visão Geral</a></li>
+<li><a href="#arquitetura-do-sistema">Arquitetura do Sistema</a></li>
+<li><a href="#tecnologias-utilizadas">Tecnologias Utilizadas</a></li>
+<li><a href="#estrutura-do-projeto">Estrutura do Projeto</a></li>
+<li><a href="#funcionalidades">Funcionalidades</a></li>
+<li><a href="#fluxos-de-trabalho">Fluxos de Trabalho</a></li>
+<li><a href="#api-backend">API Backend</a></li>
+<li><a href="#frontend">Frontend</a></li>
+<li><a href="#banco-de-dados">Banco de Dados</a></li>
+<li><a href="#autenticação-e-segurança">Autenticação e Segurança</a></li>
+<li><a href="#multi-tenancy">Multi-Tenancy</a></li>
+<li><a href="#instalação-e-configuração">Instalação e Configuração</a></li>
+<li><a href="#guia-de-desenvolvimento">Guia de Desenvolvimento</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ol>
+<hr />
+<h2>🎯 Visão Geral</h2>
+<h3>Descrição do Sistema</h3>
+<p>O <strong>Sistema de Agendamento AIResolve</strong> é uma aplicação web completa para gerenciamento de agendamentos, clientes, profissionais e serviços. O sistema foi desenvolvido com foco em multi-tenancy (múltiplas empresas), integração com WhatsApp via Evolution API e Google Calendar.</p>
+<h3>Objetivos</h3>
+<ul>
+<li>✅ Gerenciar agendamentos de múltiplas empresas</li>
+<li>✅ Automatizar comunicação com clientes via WhatsApp</li>
+<li>✅ Sincronizar agendamentos com Google Calendar</li>
+<li>✅ Fornecer dashboard com métricas e gráficos</li>
+<li>✅ Facilitar configuração inicial através de wizard</li>
+<li>✅ Garantir segurança e isolamento de dados entre empresas</li>
+</ul>
+<h3>Público-Alvo</h3>
+<ul>
+<li>🏢 Empresas de serviços (salões de beleza, clínicas, consultórios)</li>
+<li>👥 Profissionais autônomos</li>
+<li>🏪 Estabelecimentos com múltiplos profissionais</li>
+</ul>
+<hr />
+<h2>🏗️ Arquitetura do Sistema</h2>
+<h3>Diagrama de Arquitetura</h3>
+<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────────────┐
+│                      CLIENTE (Browser)                      │
+│                    React + Vite + Tailwind                  │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ HTTP/HTTPS
+                      │ JSON
+┌─────────────────────▼───────────────────────────────────────┐
+│                    API REST (Backend)                       │
+│                  Node.js + Express.js                       │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Controllers  │  │  Middleware  │  │   Services   │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │    Models    │  │    Routes    │  │     Auth     │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ SQL
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                   PostgreSQL Database                       │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Multi-Tenant Data (empresa_id isolation)             │  │
+│  │ • agendamento  • clientes  • profissional            │  │
+│  │ • servicos     • empresa   • login                   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                      │
+        ┌─────────────┴─────────────┐
+        │                           │
+┌───────▼──────┐           ┌────────▼────────┐
+│ Evolution API│           │ Google Calendar │
+│  (WhatsApp)  │           │      API        │
+└──────────────┘           └─────────────────┘
+</code></pre></div>
+
+<h3>Padrões Arquiteturais</h3>
+<ol>
+<li><strong>MVC (Model-View-Controller)</strong></li>
+<li>Model: Camada de dados (PostgreSQL)</li>
+<li>View: Interface React</li>
+<li>
+<p>Controller: API REST</p>
+</li>
+<li>
+<p><strong>RESTful API</strong></p>
+</li>
+<li>Endpoints padronizados</li>
+<li>Verbos HTTP semânticos</li>
+<li>
+<p>Respostas JSON</p>
+</li>
+<li>
+<p><strong>Multi-Tenancy</strong></p>
+</li>
+<li>Isolamento por <code>empresa_id</code></li>
+<li>Middleware de segurança</li>
+<li>Queries filtradas automaticamente</li>
+</ol>
+<hr />
+<h2>💻 Tecnologias Utilizadas</h2>
+<h3>Frontend</h3>
+<table>
+<thead>
+<tr>
+<th>Tecnologia</th>
+<th>Versão</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>React</strong></td>
+<td>18.x</td>
+<td>Biblioteca JavaScript para UI</td>
+</tr>
+<tr>
+<td><strong>Vite</strong></td>
+<td>5.x</td>
+<td>Build tool e dev server</td>
+</tr>
+<tr>
+<td><strong>React Router</strong></td>
+<td>6.x</td>
+<td>Roteamento SPA</td>
+</tr>
+<tr>
+<td><strong>TailwindCSS</strong></td>
+<td>3.x</td>
+<td>Framework CSS utility-first</td>
+</tr>
+<tr>
+<td><strong>Lucide React</strong></td>
+<td>Latest</td>
+<td>Ícones SVG</td>
+</tr>
+<tr>
+<td><strong>Axios</strong></td>
+<td>Latest</td>
+<td>Cliente HTTP</td>
+</tr>
+</tbody>
+</table>
+<h3>Backend</h3>
+<table>
+<thead>
+<tr>
+<th>Tecnologia</th>
+<th>Versão</th>
+<th>Descrição</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Node.js</strong></td>
+<td>20.x</td>
+<td>Runtime JavaScript</td>
+</tr>
+<tr>
+<td><strong>Express.js</strong></td>
+<td>4.x</td>
+<td>Framework web</td>
+</tr>
+<tr>
+<td><strong>PostgreSQL</strong></td>
+<td>Latest</td>
+<td>Banco de dados relacional</td>
+</tr>
+<tr>
+<td><strong>pg</strong></td>
+<td>Latest</td>
+<td>Driver PostgreSQL para Node.js</td>
+</tr>
+<tr>
+<td><strong>jsonwebtoken</strong></td>
+<td>Latest</td>
+<td>Autenticação JWT</td>
+</tr>
+<tr>
+<td><strong>bcrypt</strong></td>
+<td>Latest</td>
+<td>Hash de senhas</td>
+</tr>
+<tr>
+<td><strong>dotenv</strong></td>
+<td>Latest</td>
+<td>Variáveis de ambiente</td>
+</tr>
+<tr>
+<td><strong>cors</strong></td>
+<td>Latest</td>
+<td>Cross-Origin Resource Sharing</td>
+</tr>
+</tbody>
+</table>
+<h3>Ferramentas de Desenvolvimento</h3>
+<ul>
+<li><strong>NVM</strong> - Node Version Manager</li>
+<li><strong>Git</strong> - Controle de versão</li>
+<li><strong>VS Code / Cursor</strong> - IDE</li>
+</ul>
+<hr />
+<h2>📁 Estrutura do Projeto</h2>
+<div class="codehilite"><pre><span></span><code><span class="nv">agendamento</span><span class="o">/</span>
+├── <span class="nv">api</span><span class="o">/</span>                          # <span class="nv">Backend</span> <span class="ss">(</span><span class="nv">Node</span>.<span class="nv">js</span> <span class="o">+</span> <span class="nv">Express</span><span class="ss">)</span>
+│   ├── <span class="nv">src</span><span class="o">/</span>
+│   │   ├── <span class="nv">config</span><span class="o">/</span>              # <span class="nv">Configura</span>çõ<span class="nv">es</span>
+│   │   │   └── <span class="nv">database</span>.<span class="nv">js</span>      # <span class="nv">Conex</span>ã<span class="nv">o</span> <span class="nv">PostgreSQL</span>
+│   │   ├── <span class="nv">controllers</span><span class="o">/</span>         # <span class="nv">L</span>ó<span class="nv">gica</span> <span class="nv">de</span> <span class="nv">neg</span>ó<span class="nv">cio</span>
+│   │   │   ├── <span class="nv">auth</span>.<span class="nv">controller</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">dashboard</span>.<span class="nv">controller</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">empresas</span>.<span class="nv">controller</span>.<span class="nv">js</span>
+│   │   │   └── <span class="nv">wizard</span>.<span class="nv">controller</span>.<span class="nv">js</span>
+│   │   ├── <span class="nv">middleware</span><span class="o">/</span>          # <span class="nv">Middlewares</span>
+│   │   │   ├── <span class="nv">auth</span>.<span class="nv">middleware</span>.<span class="nv">js</span>
+│   │   │   └── <span class="nv">multiTenant</span>.<span class="nv">middleware</span>.<span class="nv">js</span>
+│   │   ├── <span class="nv">models</span><span class="o">/</span>              # <span class="nv">Acesso</span> <span class="nv">a</span> <span class="nv">dados</span>
+│   │   │   ├── <span class="nv">empresa</span>.<span class="nv">model</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">wizard</span>.<span class="nv">model</span>.<span class="nv">js</span>
+│   │   │   └── <span class="nv">user</span>.<span class="nv">model</span>.<span class="nv">js</span>
+│   │   ├── <span class="nv">routes</span><span class="o">/</span>              # <span class="nv">Rotas</span> <span class="nv">da</span> <span class="nv">API</span>
+│   │   │   ├── <span class="nv">auth</span>.<span class="nv">routes</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">dashboard</span>.<span class="nv">routes</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">empresas</span>.<span class="nv">routes</span>.<span class="nv">js</span>
+│   │   │   └── <span class="nv">wizard</span>.<span class="nv">routes</span>.<span class="nv">js</span>
+│   │   ├── <span class="nv">app</span>.<span class="nv">js</span>               # <span class="nv">Configura</span>çã<span class="nv">o</span> <span class="nv">Express</span>
+│   │   └── <span class="nv">server</span>.<span class="nv">js</span>            # <span class="nv">Inicializa</span>çã<span class="nv">o</span> <span class="k">do</span> <span class="nv">servidor</span>
+│   ├── <span class="nv">package</span>.<span class="nv">json</span>
+│   └── .<span class="nv">env</span>                     # <span class="nv">Vari</span>á<span class="nv">veis</span> <span class="nv">de</span> <span class="nv">ambiente</span>
+│
+├── <span class="nv">site</span><span class="o">/</span>                         # <span class="nv">Frontend</span> <span class="ss">(</span><span class="nv">React</span> <span class="o">+</span> <span class="nv">Vite</span><span class="ss">)</span>
+│   ├── <span class="nv">public</span><span class="o">/</span>                  # <span class="nv">Arquivos</span> <span class="nv">est</span>á<span class="nv">ticos</span>
+│   ├── <span class="nv">src</span><span class="o">/</span>
+│   │   ├── <span class="nv">assets</span><span class="o">/</span>              # <span class="nv">Imagens</span>, <span class="nv">estilos</span>
+│   │   │   ├── <span class="nv">images</span><span class="o">/</span>
+│   │   │   └── <span class="nv">styles</span><span class="o">/</span>
+│   │   │       └── <span class="nv">index</span>.<span class="nv">css</span>
+│   │   ├── <span class="nv">components</span><span class="o">/</span>          # <span class="nv">Componentes</span> <span class="nv">React</span>
+│   │   │   ├── <span class="nv">layout</span><span class="o">/</span>          # <span class="nv">Layout</span> <span class="nv">components</span>
+│   │   │   │   ├── <span class="nv">AuthLayout</span>.<span class="nv">jsx</span>
+│   │   │   │   ├── <span class="nv">Header</span>.<span class="nv">jsx</span>
+│   │   │   │   ├── <span class="nv">MainLayout</span>.<span class="nv">jsx</span>
+│   │   │   │   └── <span class="nv">Sidebar</span>.<span class="nv">jsx</span>
+│   │   │   ├── <span class="nv">ui</span><span class="o">/</span>              # <span class="nv">UI</span> <span class="nv">components</span>
+│   │   │   │   ├── <span class="nv">Button</span>.<span class="nv">jsx</span>
+│   │   │   │   ├── <span class="nv">Card</span>.<span class="nv">jsx</span>
+│   │   │   │   ├── <span class="nv">Input</span>.<span class="nv">jsx</span>
+│   │   │   │   └── <span class="nv">Logo</span>.<span class="nv">jsx</span>
+│   │   │   └── <span class="nv">features</span><span class="o">/</span>        # <span class="nv">Feature</span> <span class="nv">components</span>
+│   │   ├── <span class="nv">contexts</span><span class="o">/</span>            # <span class="nv">React</span> <span class="nv">Context</span>
+│   │   │   └── <span class="nv">AuthContext</span>.<span class="nv">jsx</span>
+│   │   ├── <span class="nv">pages</span><span class="o">/</span>               # <span class="nv">P</span>á<span class="nv">ginas</span>
+│   │   │   ├── <span class="nv">Dashboard</span>.<span class="nv">jsx</span>
+│   │   │   ├── <span class="nv">Login</span>.<span class="nv">jsx</span>
+│   │   │   ├── <span class="nv">Agendamentos</span><span class="o">/</span>
+│   │   │   ├── <span class="nv">Clientes</span><span class="o">/</span>
+│   │   │   ├── <span class="nv">Configuracoes</span><span class="o">/</span>
+│   │   │   ├── <span class="nv">Empresas</span><span class="o">/</span>
+│   │   │   ├── <span class="nv">Profissionais</span><span class="o">/</span>
+│   │   │   ├── <span class="nv">Servicos</span><span class="o">/</span>
+│   │   │   └── <span class="nv">Wizard</span><span class="o">/</span>
+│   │   ├── <span class="nv">services</span><span class="o">/</span>            # <span class="nv">Servi</span>ç<span class="nv">os</span> <span class="nv">API</span>
+│   │   │   ├── <span class="nv">api</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">auth</span>.<span class="nv">service</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">dashboard</span>.<span class="nv">service</span>.<span class="nv">js</span>
+│   │   │   ├── <span class="nv">empresas</span>.<span class="nv">service</span>.<span class="nv">js</span>
+│   │   │   └── <span class="nv">wizard</span>.<span class="nv">service</span>.<span class="nv">js</span>
+│   │   ├── <span class="nv">utils</span><span class="o">/</span>               # <span class="nv">Utilit</span>á<span class="nv">rios</span>
+│   │   ├── <span class="nv">App</span>.<span class="nv">jsx</span>              # <span class="nv">Componente</span> <span class="nv">raiz</span>
+│   │   ├── <span class="nv">main</span>.<span class="nv">jsx</span>             # <span class="nv">Entry</span> <span class="nv">point</span>
+│   │   └── <span class="nv">router</span>.<span class="nv">jsx</span>           # <span class="nv">Configura</span>çã<span class="nv">o</span> <span class="nv">de</span> <span class="nv">rotas</span>
+│   ├── <span class="nv">package</span>.<span class="nv">json</span>
+│   ├── <span class="nv">vite</span>.<span class="nv">config</span>.<span class="nv">js</span>
+│   ├── <span class="nv">tailwind</span>.<span class="nv">config</span>.<span class="nv">js</span>
+│   └── <span class="nv">postcss</span>.<span class="nv">config</span>.<span class="nv">js</span>
+│
+├── <span class="nv">conecta_db</span>.<span class="nv">conf</span>               # <span class="nv">Configura</span>çã<span class="nv">o</span> <span class="k">do</span> <span class="nv">banco</span>
+├── <span class="nv">estrutura_banco</span>.<span class="nv">sql</span>           # <span class="nv">Schema</span> <span class="k">do</span> <span class="nv">banco</span>
+├── <span class="nv">backup_25_10_25</span>               # <span class="nv">Backup</span> <span class="k">do</span> <span class="nv">banco</span>
+├── <span class="nv">DOCUMENTACAO_BANCO_DADOS</span>.<span class="nv">md</span>  # <span class="nv">Doc</span> <span class="k">do</span> <span class="nv">banco</span> <span class="nv">de</span> <span class="nv">dados</span>
+├── <span class="nv">DOCUMENTACAO_APLICACAO</span>.<span class="nv">md</span>    # <span class="nv">Esta</span> <span class="nv">documenta</span>çã<span class="nv">o</span>
+└── <span class="nv">EXCLUSAO_SEGURA</span>.<span class="nv">md</span>           # <span class="nv">Doc</span> <span class="nv">sobre</span> <span class="nv">soft</span> <span class="nv">delete</span>
+</code></pre></div>
+
+<hr />
+<h2>⚙️ Funcionalidades</h2>
+<h3>1. Autenticação e Autorização</h3>
+<h4>Login</h4>
+<ul>
+<li>✅ Autenticação via email e senha</li>
+<li>✅ Geração de token JWT</li>
+<li>✅ Armazenamento seguro de senhas (bcrypt)</li>
+<li>✅ Sessão persistente (localStorage)</li>
+</ul>
+<h4>Níveis de Acesso</h4>
+<ul>
+<li><strong>Super Admin</strong> (<code>nivel_acesso_id = 1</code>): Acesso total a todas as empresas</li>
+<li><strong>Admin Empresa</strong>: Acesso total à sua empresa</li>
+<li><strong>Usuário Normal</strong>: Acesso limitado à sua empresa</li>
+</ul>
+<h3>2. Dashboard</h3>
+<h4>Métricas Principais</h4>
+<ul>
+<li>📊 <strong>Agendamentos Hoje</strong>: Quantidade de agendamentos do dia</li>
+<li>👥 <strong>Clientes Ativos</strong>: Últimos 90 dias</li>
+<li>💼 <strong>Serviços Realizados</strong>: Total do mês (excluindo cancelados)</li>
+<li>💰 <strong>Receita do Mês</strong>: Soma dos valores dos agendamentos (excluindo cancelados)</li>
+</ul>
+<h4>Gráfico de Agendamentos</h4>
+<ul>
+<li>📈 <strong>Gráfico de Linhas</strong>: Agendamentos vs Cancelamentos por dia do mês</li>
+<li>✨ <strong>Curvas Suaves</strong>: Curvas Bézier para melhor visualização</li>
+<li>🎨 <strong>Responsivo</strong>: Adapta-se ao tamanho da tela</li>
+<li>🖱️ <strong>Interativo</strong>: Tooltips ao passar o mouse</li>
+</ul>
+<h4>Listas</h4>
+<ul>
+<li>📅 <strong>Próximos Agendamentos</strong>: Lista dos próximos agendamentos</li>
+<li>👨‍💼 <strong>Profissionais Hoje</strong>: Profissionais com agendamentos hoje</li>
+</ul>
+<h4>Dashboard Super Admin</h4>
+<ul>
+<li>📊 <strong>Estatísticas por Empresa</strong>: Tabela agregada de todas as empresas</li>
+<li>🌐 <strong>Visão Global</strong>: Métricas consolidadas de todo o sistema</li>
+</ul>
+<h3>3. Gestão de Empresas</h3>
+<h4>Cadastro de Empresas</h4>
+<ul>
+<li>✅ Criação de nova empresa</li>
+<li>✅ Criação automática de usuário admin</li>
+<li>✅ Geração de senha aleatória</li>
+<li>✅ Transações atômicas (rollback em caso de erro)</li>
+</ul>
+<h4>Listagem de Empresas</h4>
+<ul>
+<li>📋 <strong>Multi-Tenant</strong>: Usuários normais veem apenas sua empresa</li>
+<li>🌐 <strong>Super Admin</strong>: Vê todas as empresas</li>
+<li>🔍 <strong>Informações</strong>: Nome, contato, endereço</li>
+</ul>
+<h3>4. Wizard de Configuração Inicial</h3>
+<p>O wizard guia novas empresas através de 7 etapas de configuração:</p>
+<h4>Etapa 1: Configurações Básicas</h4>
+<ul>
+<li>📝 Antecedência mínima para agendamento</li>
+<li>⏱️ Intervalo entre agendamentos</li>
+</ul>
+<h4>Etapa 2: Horários de Funcionamento</h4>
+<ul>
+<li>📅 Definição de horários por dia da semana</li>
+<li>⏰ Suporte a múltiplos períodos (ex: manhã e tarde)</li>
+<li>🍽️ Permite configurar horário de almoço</li>
+</ul>
+<h4>Etapa 3: Profissionais</h4>
+<ul>
+<li>👤 Cadastro de profissionais</li>
+<li>📞 Nome, especialidade, contato</li>
+<li>🏠 Endereço (usa endereço da empresa)</li>
+</ul>
+<h4>Etapa 4: Serviços</h4>
+<ul>
+<li>💼 Cadastro de serviços</li>
+<li>⏱️ Duração em minutos</li>
+<li>💰 Valor do serviço</li>
+</ul>
+<h4>Etapa 5: Vínculos Profissional-Serviço</h4>
+<ul>
+<li>🔗 Associação de serviços aos profissionais</li>
+<li>✅ Seleção múltipla</li>
+</ul>
+<h4>Etapa 6: WhatsApp (Evolution API)</h4>
+<ul>
+<li>📱 Configuração da instância WhatsApp</li>
+<li>🔑 UUID da instância Evolution API</li>
+<li>📝 Nome amigável da instância</li>
+</ul>
+<h4>Etapa 7: Revisão</h4>
+<ul>
+<li>👁️ Visualização de todas as configurações</li>
+<li>✅ Confirmação e salvamento</li>
+</ul>
+<h3>5. Configurações da Empresa</h3>
+<p>Permite editar todas as informações configuradas no wizard:</p>
+<h4>Aba Empresa</h4>
+<ul>
+<li>✏️ Nome, contato, observações</li>
+<li>📍 Endereço completo (CEP, logradouro, número, bairro, cidade, UF)</li>
+<li>📞 Contato do agente</li>
+</ul>
+<h4>Aba Agendamentos</h4>
+<ul>
+<li>⏱️ Antecedência mínima</li>
+<li>⏱️ Intervalo entre agendamentos</li>
+<li>📅 Horários de funcionamento (editável)</li>
+<li>➕ Adicionar múltiplos períodos por dia</li>
+</ul>
+<h4>Aba WhatsApp</h4>
+<ul>
+<li>🔑 UUID da instância</li>
+<li>📝 Nome da instância</li>
+<li>⚠️ Alerta ao editar (pode afetar funcionamento)</li>
+</ul>
+<h4>Aba Profissionais</h4>
+<ul>
+<li>📋 Lista de profissionais</li>
+<li>✏️ Editar nome, especialidade, contato</li>
+<li>🗑️ Excluir profissional (com validações)</li>
+</ul>
+<h4>Aba Serviços</h4>
+<ul>
+<li>📋 Lista de serviços</li>
+<li>✏️ Editar nome, valor, duração</li>
+<li>🔗 Vincular/desvincular profissionais</li>
+<li>➕ Adicionar novos serviços</li>
+<li>🗑️ Excluir serviço (soft delete)</li>
+</ul>
+<h3>6. Exclusão Segura (Soft Delete)</h3>
+<h4>Serviços</h4>
+<ul>
+<li>✅ Soft delete: altera <code>status</code> para 'inativo'</li>
+<li>✅ Mantém histórico para relatórios</li>
+<li>✅ Não aparece mais nas listagens ativas</li>
+</ul>
+<h4>Profissionais</h4>
+<ul>
+<li>✅ Soft delete: altera <code>status</code> para 'inativo'</li>
+<li>⚠️ Validação: não permite excluir se houver serviços ativos vinculados</li>
+<li>⚠️ Validação: não permite excluir se houver agendamentos históricos</li>
+<li>✅ Preserva integridade referencial</li>
+</ul>
+<h3>7. Integrações</h3>
+<h4>WhatsApp (Evolution API)</h4>
+<ul>
+<li>📱 Comunicação automatizada com clientes</li>
+<li>🤖 IA para processamento de mensagens</li>
+<li>🔑 Identificação de empresa por <code>instancia_id</code></li>
+</ul>
+<h4>Google Calendar</h4>
+<ul>
+<li>📅 Sincronização de agendamentos</li>
+<li>🔄 Atualização automática</li>
+<li>🔗 Link para evento no calendário</li>
+</ul>
+<hr />
+<h2>🔄 Fluxos de Trabalho</h2>
+<h3>Fluxo de Login</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">Usuário</span><span class="w"> </span><span class="n">acessa</span><span class="w"> </span><span class="o">/</span><span class="nb">log</span><span class="n">in</span><span class="w"></span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">Insere</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="n">senha</span><span class="w"></span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="nb">POS</span><span class="n">T</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">auth</span><span class="o">/</span><span class="nb">log</span><span class="n">in</span><span class="w"></span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="nb">val</span><span class="n">ida</span><span class="w"> </span><span class="n">credenciais</span><span class="w"></span>
+<span class="mf">5.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">gera</span><span class="w"> </span><span class="kr">to</span><span class="n">ken</span><span class="w"> </span><span class="n">JWT</span><span class="w"></span>
+<span class="mf">6.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">retorna</span><span class="p">:</span><span class="w"> </span><span class="err">{</span><span class="w"> </span><span class="kr">to</span><span class="n">ken</span><span class="p">,</span><span class="w"> </span><span class="n">user</span><span class="p">:</span><span class="w"> </span><span class="err">{</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">nome</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="n">empresa_id</span><span class="p">,</span><span class="w"> </span><span class="n">nivel_acesso_id</span><span class="w"> </span><span class="err">}</span><span class="w"> </span><span class="err">}</span><span class="w"></span>
+<span class="mf">7.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">armazena</span><span class="w"> </span><span class="kr">to</span><span class="n">ken</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="n">user</span><span class="w"> </span><span class="n">no</span><span class="w"> </span><span class="n">localStorage</span><span class="w"></span>
+<span class="mf">8.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">redireciona</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="o">/</span><span class="n">dashboard</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Fluxo de Cadastro de Nova Empresa</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">Super</span><span class="w"> </span><span class="n">Admin</span><span class="w"> </span><span class="n">acessa</span><span class="w"> </span><span class="o">/</span><span class="n">empresas</span><span class="w"></span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">Clica</span><span class="w"> </span><span class="n">em</span><span class="w"> </span><span class="s">&quot;Nova Empresa&quot;</span><span class="w"></span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">Preenche</span><span class="w"> </span><span class="kr">for</span><span class="n">mulário</span><span class="w"> </span><span class="p">(</span><span class="n">nome</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="n">admin</span><span class="p">,</span><span class="w"> </span><span class="n">etc</span><span class="mf">.</span><span class="p">)</span><span class="w"></span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="nb">POS</span><span class="n">T</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">empresas</span><span class="w"></span>
+<span class="mf">5.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">inicia</span><span class="w"> </span><span class="n">transação</span><span class="w"></span>
+<span class="mf">6.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">cria</span><span class="w"> </span><span class="n">registro</span><span class="w"> </span><span class="n">em</span><span class="w"> </span><span class="err">&#39;</span><span class="n">empresa</span><span class="err">&#39;</span><span class="w"></span>
+<span class="mf">7.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">cria</span><span class="w"> </span><span class="n">registro</span><span class="w"> </span><span class="n">em</span><span class="w"> </span><span class="err">&#39;</span><span class="kr">end</span><span class="n">ereco</span><span class="err">&#39;</span><span class="w"></span>
+<span class="mf">8.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">cria</span><span class="w"> </span><span class="n">usuário</span><span class="w"> </span><span class="n">admin</span><span class="w"> </span><span class="n">em</span><span class="w"> </span><span class="err">&#39;</span><span class="nb">log</span><span class="n">in</span><span class="err">&#39;</span><span class="w"></span>
+<span class="mf">9.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">gera</span><span class="w"> </span><span class="n">senha</span><span class="w"> </span><span class="n">aleatória</span><span class="w"></span>
+<span class="mf">10.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">faz</span><span class="w"> </span><span class="n">commit</span><span class="w"> </span><span class="n">da</span><span class="w"> </span><span class="n">transação</span><span class="w"></span>
+<span class="mf">11.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">retorna</span><span class="w"> </span><span class="n">empresa</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="n">senha</span><span class="w"> </span><span class="n">gerada</span><span class="w"></span>
+<span class="mf">12.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">exibe</span><span class="w"> </span><span class="n">senha</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="n">admin</span><span class="w"> </span><span class="n">copiar</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Fluxo do Wizard de Configuração</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">Novo</span><span class="w"> </span><span class="n">admin</span><span class="w"> </span><span class="n">faz</span><span class="w"> </span><span class="nb">log</span><span class="n">in</span><span class="w"> </span><span class="n">pela</span><span class="w"> </span><span class="n">primeira</span><span class="w"> </span><span class="n">vez</span><span class="w"></span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">Sistema</span><span class="w"> </span><span class="n">detecta</span><span class="w"> </span><span class="n">wizard</span><span class="w"> </span><span class="n">não</span><span class="w"> </span><span class="n">completado</span><span class="w"></span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">Redireciona</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="o">/</span><span class="n">wizard</span><span class="w"></span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">Admin</span><span class="w"> </span><span class="n">passa</span><span class="w"> </span><span class="n">pelas</span><span class="w"> </span><span class="mf">7</span><span class="w"> </span><span class="n">etapas</span><span class="p">:</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">1</span><span class="p">:</span><span class="w"> </span><span class="n">Configurações</span><span class="w"> </span><span class="n">básicas</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">2</span><span class="p">:</span><span class="w"> </span><span class="n">Horários</span><span class="w"> </span><span class="n">de</span><span class="w"> </span><span class="n">funcionamento</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">3</span><span class="p">:</span><span class="w"> </span><span class="n">Cadastro</span><span class="w"> </span><span class="n">de</span><span class="w"> </span><span class="n">profissionais</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">4</span><span class="p">:</span><span class="w"> </span><span class="n">Cadastro</span><span class="w"> </span><span class="n">de</span><span class="w"> </span><span class="n">serviços</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">5</span><span class="p">:</span><span class="w"> </span><span class="n">Vínculos</span><span class="w"> </span><span class="n">profissional</span><span class="o">-</span><span class="n">serviço</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">6</span><span class="p">:</span><span class="w"> </span><span class="n">Instância</span><span class="w"> </span><span class="n">WhatsApp</span><span class="w"></span>
+<span class="w">   </span><span class="o">-</span><span class="w"> </span><span class="n">Etapa</span><span class="w"> </span><span class="mf">7</span><span class="p">:</span><span class="w"> </span><span class="n">Revisão</span><span class="w"></span>
+<span class="mf">5.</span><span class="w"> </span><span class="n">Ao</span><span class="w"> </span><span class="n">finalizar</span><span class="p">,</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="nb">POS</span><span class="n">T</span><span class="w"> </span><span class="o">/</span><span class="n">api</span><span class="o">/</span><span class="n">wizard</span><span class="o">/</span><span class="n">completar</span><span class="w"></span>
+<span class="mf">6.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">salva</span><span class="w"> </span><span class="kr">to</span><span class="n">das</span><span class="w"> </span><span class="n">as</span><span class="w"> </span><span class="n">configurações</span><span class="w"> </span><span class="n">em</span><span class="w"> </span><span class="n">transação</span><span class="w"></span>
+<span class="mf">7.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">marca</span><span class="w"> </span><span class="n">wizard</span><span class="w"> </span><span class="n">como</span><span class="w"> </span><span class="n">completo</span><span class="w"></span>
+<span class="mf">8.</span><span class="w"> </span><span class="n">Frontend</span><span class="w"> </span><span class="n">redireciona</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="o">/</span><span class="n">dashboard</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Fluxo de Agendamento via WhatsApp</h3>
+<div class="codehilite"><pre><span></span><code><span class="mf">1.</span><span class="w"> </span><span class="n">Cliente</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="n">mensagem</span><span class="w"> </span><span class="n">WhatsApp</span><span class="w"></span>
+<span class="mf">2.</span><span class="w"> </span><span class="n">Evolution</span><span class="w"> </span><span class="n">API</span><span class="w"> </span><span class="n">recebe</span><span class="w"> </span><span class="n">mensagem</span><span class="w"></span>
+<span class="mf">3.</span><span class="w"> </span><span class="n">Evolution</span><span class="w"> </span><span class="n">API</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="n">o</span><span class="w"> </span><span class="n">backend</span><span class="w"></span>
+<span class="mf">4.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">identifica</span><span class="w"> </span><span class="n">empresa</span><span class="w"> </span><span class="n">por</span><span class="w"> </span><span class="n">instancia_id</span><span class="w"></span>
+<span class="mf">5.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">busca</span><span class="w"> </span><span class="kr">cont</span><span class="n">exto</span><span class="w"> </span><span class="n">da</span><span class="w"> </span><span class="n">sessão</span><span class="w"></span>
+<span class="mf">6.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="n">para</span><span class="w"> </span><span class="n">IA</span><span class="w"> </span><span class="n">processar</span><span class="w"></span>
+<span class="mf">7.</span><span class="w"> </span><span class="n">IA</span><span class="w"> </span><span class="nb">int</span><span class="n">erpreta</span><span class="w"> </span><span class="nb">int</span><span class="n">enção</span><span class="w"> </span><span class="p">(</span><span class="n">agendar</span><span class="p">,</span><span class="w"> </span><span class="n">cancelar</span><span class="p">,</span><span class="w"> </span><span class="n">etc</span><span class="mf">.</span><span class="p">)</span><span class="w"></span>
+<span class="mf">8.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="nb">val</span><span class="n">ida</span><span class="w"> </span><span class="n">disponibilidade</span><span class="w"></span>
+<span class="mf">9.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">cria</span><span class="w"> </span><span class="n">agendamento</span><span class="w"></span>
+<span class="mf">10.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">cria</span><span class="w"> </span><span class="n">evento</span><span class="w"> </span><span class="n">no</span><span class="w"> </span><span class="kr">Go</span><span class="n">ogle</span><span class="w"> </span><span class="n">Calendar</span><span class="w"></span>
+<span class="mf">11.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">gera</span><span class="w"> </span><span class="n">protocolo</span><span class="w"> </span><span class="n">único</span><span class="w"></span>
+<span class="mf">12.</span><span class="w"> </span><span class="n">Backend</span><span class="w"> </span><span class="n">envia</span><span class="w"> </span><span class="n">confirmação</span><span class="w"> </span><span class="n">via</span><span class="w"> </span><span class="n">WhatsApp</span><span class="w"></span>
+</code></pre></div>
+
+<hr />
+<h2>🔌 API Backend</h2>
+<h3>Estrutura Base</h3>
+<p><strong>Base URL</strong>: <code>http://localhost:3001/api</code></p>
+<p><strong>Headers Padrão</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;Content-Type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;application/json&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;Authorization&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bearer &lt;token_jwt&gt;&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Endpoints de Autenticação</h3>
+<h4>POST /api/auth/login</h4>
+<p>Realiza login do usuário.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;admin@empresa.com&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;senha&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;senha123&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;user&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Administrador&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;admin@empresa.com&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;empresa_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;nivel_acesso_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Response Error (401)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Email ou senha inválidos&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/auth/me</h4>
+<p>Retorna dados do usuário autenticado.</p>
+<p><strong>Headers</strong>: <code>Authorization: Bearer &lt;token&gt;</code></p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;user&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Administrador&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;admin@empresa.com&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;empresa_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;nivel_acesso_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Endpoints de Dashboard</h3>
+<h4>GET /api/dashboard/stats</h4>
+<p>Retorna estatísticas do dashboard.</p>
+<p><strong>Query Params</strong>: Nenhum (usa empresa_id do token JWT)</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;agendamentosHoje&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;clientesAtivos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">23</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;servicosRealizados&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;receitaMes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1455.00</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/dashboard/proximos-agendamentos</h4>
+<p>Retorna próximos agendamentos.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agend_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agend_data&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-10-26&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agend_hora&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;09:00:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;cliente_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Pamela Moraes&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;servicos_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Pedicure&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;status_agend_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Confirmado&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espaço Pamela Moraes&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/dashboard/profissionais-hoje</h4>
+<p>Retorna profissionais com agendamentos hoje.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;profissional_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;profissional_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Julia Fane&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;profissional_especialidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cabeleireira e maquiadora&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;total_agendamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espaço Pamela Moraes&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/dashboard/grafico-agendamentos</h4>
+<p>Retorna dados para o gráfico de agendamentos do mês.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-10-01&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;dia&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agendamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;cancelamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2025-10-02&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;dia&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agendamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;cancelamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/dashboard/estatisticas-por-empresa</h4>
+<p>Retorna estatísticas agregadas por empresa (Super Admin apenas).</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espaço Pamela Moraes&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;agendamentos_hoje&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;clientes_ativos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">23</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;servicos_realizados&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;receita_mes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1455.00</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Endpoints de Empresas</h3>
+<h4>GET /api/empresas</h4>
+<p>Lista empresas (filtrado por permissão).</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espaço Pamela Moraes&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_contato&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35999999999&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;cep&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35573356&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;logradouro&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rua Exemplo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;numero&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;123&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;bairro&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Centro&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;cidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Formiga&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;uf&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MG&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>POST /api/empresas</h4>
+<p>Cria nova empresa (Super Admin apenas).</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Nova Empresa&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;empresa_contato&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35999999999&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;cep&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35573356&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;logradouro&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Rua Exemplo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;numero&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;123&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;bairro&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Centro&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;cidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Formiga&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;uf&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;MG&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;admin_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Admin Nome&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;admin_email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;admin@novaempresa.com&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Response Success (201)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Empresa criada com sucesso&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;empresa_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;senha_admin&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SenhaGerada123&quot;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Endpoints do Wizard</h3>
+<h4>GET /api/wizard/status</h4>
+<p>Verifica se o wizard foi completado.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;completed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>GET /api/wizard/empresa</h4>
+<p>Retorna dados completos da empresa para o wizard.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;empresa&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Espaço Pamela Moraes&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;antecedencia_minima&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;intervalo_agendamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;horarios&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;dia_semana&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;hora_inicio&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;08:00:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;hora_fim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;12:00:00&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;profissionais&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;profissional_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;profissional_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Julia Fane&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;especialidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cabeleireira&quot;</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;servicos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">      </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;servicos_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;servicos_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Corte de Cabelo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;servicos_valor&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">50.00</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;servicos_duracao_minutos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"></span>
+<span class="w">        </span><span class="nt">&quot;profissionais_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;uuid1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;uuid2&quot;</span><span class="p">]</span><span class="w"></span>
+<span class="w">      </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">],</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;instancia&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;instancia_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid-evolution&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;instancia_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WhatsApp Principal&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>POST /api/wizard/completar</h4>
+<p>Salva todas as configurações do wizard.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;configuracoes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;antecedencia_minima&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;intervalo_agendamentos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="w"></span>
+<span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;horarios&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;dia_semana&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_inicio&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;08:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_fim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;18:00&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;profissionais&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Julia Fane&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;especialidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Cabeleireira&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;contato&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35999999999&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Corte de Cabelo&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;valor&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">50.00</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;duracao_minutos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;vinculos&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;profissional_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;servico_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">],</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;instancia&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;instancia_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;uuid-evolution&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nt">&quot;instancia_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WhatsApp Principal&quot;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Configuração inicial concluída com sucesso&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>PUT /api/wizard/empresa</h4>
+<p>Atualiza dados da empresa.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;empresa_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Novo Nome&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;empresa_contato&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35999999999&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;cep&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35573356&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;observacoes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Observações&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;empresa_contato_agente&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35988888888&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>PUT /api/wizard/horarios</h4>
+<p>Atualiza horários de funcionamento.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;horarios&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;dia_semana&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_inicio&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;08:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_fim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;12:00&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">},</span><span class="w"></span>
+<span class="w">    </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;dia_semana&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_inicio&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;14:00&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nt">&quot;hora_fim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;18:00&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>PUT /api/wizard/servicos/:servicoId</h4>
+<p>Atualiza um serviço.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos_valor&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">60.00</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos_duracao_minutos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">90</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;profissionais_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;uuid1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;uuid2&quot;</span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>POST /api/wizard/servicos</h4>
+<p>Cria novo serviço.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Novo Serviço&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos_valor&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">100.00</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;servicos_duracao_minutos&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;profissionais_ids&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;uuid1&quot;</span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>DELETE /api/wizard/servicos/:servicoId</h4>
+<p>Exclui (soft delete) um serviço.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Serviço excluído com sucesso&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>PUT /api/wizard/profissionais/:profissionalId</h4>
+<p>Atualiza um profissional.</p>
+<p><strong>Request</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;profissional_nome&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Novo Nome&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;especialidade&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Nova Especialidade&quot;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;profissional_contato&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;35999999999&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>DELETE /api/wizard/profissionais/:profissionalId</h4>
+<p>Exclui (soft delete) um profissional.</p>
+<p><strong>Response Success (200)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Profissional excluído com sucesso&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Response Error (400)</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;success&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Não é possível excluir este profissional pois existem serviços ativos vinculados a ele&quot;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<hr />
+<h2>🎨 Frontend</h2>
+<h3>Estrutura de Componentes</h3>
+<h4>Componentes de Layout</h4>
+<p><strong>MainLayout.jsx</strong>
+- Container principal da aplicação
+- Inclui Sidebar e Header
+- Renderiza conteúdo das páginas</p>
+<p><strong>Sidebar.jsx</strong>
+- Menu lateral de navegação
+- Logo da empresa no topo
+- Links para todas as páginas
+- Destaque visual para página ativa</p>
+<p><strong>Header.jsx</strong>
+- Barra superior
+- Saudação ao usuário
+- Notificações
+- Botão de logout</p>
+<p><strong>AuthLayout.jsx</strong>
+- Layout para páginas de autenticação
+- Centraliza conteúdo
+- Fundo gradiente</p>
+<h4>Componentes UI</h4>
+<p><strong>Button.jsx</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">Button</span><span class="w"> </span>
+<span class="w">  </span><span class="n">variant</span><span class="o">=</span><span class="s2">&quot;primary|secondary|ghost|danger&quot;</span><span class="w"> </span>
+<span class="w">  </span><span class="n">size</span><span class="o">=</span><span class="s2">&quot;sm|md|lg&quot;</span><span class="w"></span>
+<span class="w">  </span><span class="n">loading</span><span class="o">=</span><span class="p">{</span><span class="n">boolean</span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="n">onClick</span><span class="o">=</span><span class="p">{</span><span class="n">function</span><span class="p">}</span><span class="w"></span>
+<span class="o">&gt;</span><span class="w"></span>
+<span class="w">  </span><span class="n">Texto</span><span class="w"> </span><span class="n">do</span><span class="w"> </span><span class="n">Botão</span><span class="w"></span>
+<span class="o">&lt;/</span><span class="n">Button</span><span class="o">&gt;</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Input.jsx</strong></p>
+<div class="codehilite"><pre><span></span><code>&lt;Input
+  label=&quot;Label&quot;
+  type=&quot;text|email|password|number&quot;
+  value={value}
+  onChange={handleChange}
+  placeholder=&quot;Placeholder&quot;
+  required={boolean}
+  disabled={boolean}
+/&gt;
+</code></pre></div>
+
+<p><strong>Card.jsx</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;Card&gt;</span>
+  <span class="nt">&lt;CardHeader&gt;</span>
+    <span class="nt">&lt;h3&gt;</span>Título<span class="nt">&lt;/h3&gt;</span>
+  <span class="nt">&lt;/CardHeader&gt;</span>
+  <span class="nt">&lt;CardBody&gt;</span>
+    Conteúdo
+  <span class="nt">&lt;/CardBody&gt;</span>
+<span class="nt">&lt;/Card&gt;</span>
+</code></pre></div>
+
+<p><strong>Logo.jsx</strong></p>
+<div class="codehilite"><pre><span></span><code><span class="o">&lt;</span><span class="n">Logo</span><span class="w"> </span>
+<span class="w">  </span><span class="n">size</span><span class="o">=</span><span class="s2">&quot;sm|md|lg|xl&quot;</span><span class="w"> </span>
+<span class="w">  </span><span class="n">variant</span><span class="o">=</span><span class="s2">&quot;full|icon&quot;</span><span class="w"> </span>
+<span class="o">/&gt;</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Páginas Principais</h3>
+<h4>Dashboard.jsx</h4>
+<ul>
+<li>Métricas em cards</li>
+<li>Gráfico de linhas (agendamentos vs cancelamentos)</li>
+<li>Lista de próximos agendamentos</li>
+<li>Lista de profissionais hoje</li>
+<li>Estatísticas por empresa (Super Admin)</li>
+</ul>
+<h4>Login.jsx</h4>
+<ul>
+<li>Logo centralizado</li>
+<li>Formulário de login</li>
+<li>Validação de campos</li>
+<li>Feedback de erros</li>
+</ul>
+<h4>Configuracoes/index.jsx</h4>
+<ul>
+<li>Abas: Empresa, Agendamentos, WhatsApp, Profissionais, Serviços</li>
+<li>Edição inline</li>
+<li>Validações</li>
+<li>Modais para adicionar novos itens</li>
+</ul>
+<h4>Empresas/index.jsx</h4>
+<ul>
+<li>Lista de empresas</li>
+<li>Modal para nova empresa</li>
+<li>Exibição de senha gerada</li>
+</ul>
+<h4>Wizard/index.jsx</h4>
+<ul>
+<li>7 etapas de configuração</li>
+<li>Navegação entre etapas</li>
+<li>Validação por etapa</li>
+<li>Resumo final</li>
+</ul>
+<h3>Roteamento</h3>
+<div class="codehilite"><pre><span></span><code>// router.jsx
+<span class="nt">&lt;Routes&gt;</span>
+  <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/login&quot;</span> <span class="na">element=</span><span class="s">{&lt;Login</span> <span class="nt">/&gt;</span>} /&gt;
+
+  <span class="nt">&lt;Route</span> <span class="na">element=</span><span class="s">{&lt;ProtectedRoute</span> <span class="nt">/&gt;</span>}&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/&quot;</span> <span class="na">element=</span><span class="s">{&lt;Dashboard</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/agendamentos&quot;</span> <span class="na">element=</span><span class="s">{&lt;Agendamentos</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/clientes&quot;</span> <span class="na">element=</span><span class="s">{&lt;Clientes</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/profissionais&quot;</span> <span class="na">element=</span><span class="s">{&lt;Profissionais</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/servicos&quot;</span> <span class="na">element=</span><span class="s">{&lt;Servicos</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/empresas&quot;</span> <span class="na">element=</span><span class="s">{&lt;Empresas</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/configuracoes&quot;</span> <span class="na">element=</span><span class="s">{&lt;Configuracoes</span> <span class="nt">/&gt;</span>} /&gt;
+    <span class="nt">&lt;Route</span> <span class="na">path=</span><span class="s">&quot;/wizard&quot;</span> <span class="na">element=</span><span class="s">{&lt;Wizard</span> <span class="nt">/&gt;</span>} /&gt;
+  <span class="nt">&lt;/Route&gt;</span>
+<span class="nt">&lt;/Routes&gt;</span>
+</code></pre></div>
+
+<h3>Context API</h3>
+<h4>AuthContext</h4>
+<p>Gerencia estado de autenticação global.</p>
+<div class="codehilite"><pre><span></span><code><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">user</span><span class="p">,</span><span class="w"> </span><span class="n">login</span><span class="p">,</span><span class="w"> </span><span class="n">logout</span><span class="p">,</span><span class="w"> </span><span class="n">loading</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">useAuth</span><span class="p">()</span><span class="w"></span>
+
+<span class="o">//</span><span class="w"> </span><span class="n">user</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">nome</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="n">empresa_id</span><span class="p">,</span><span class="w"> </span><span class="n">nivel_acesso_id</span><span class="w"> </span><span class="p">}</span><span class="w"></span>
+<span class="o">//</span><span class="w"> </span><span class="n">login</span><span class="p">(</span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="n">senha</span><span class="p">):</span><span class="w"> </span><span class="n">Promise</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="n">success</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="w"></span>
+<span class="o">//</span><span class="w"> </span><span class="n">logout</span><span class="p">():</span><span class="w"> </span><span class="nb nb-Type">void</span><span class="w"></span>
+<span class="o">//</span><span class="w"> </span><span class="n">loading</span><span class="p">:</span><span class="w"> </span><span class="n">boolean</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Services</h3>
+<h4>api.js</h4>
+<p>Cliente Axios configurado com:
+- Base URL
+- Interceptors para adicionar token JWT
+- Tratamento de erros 401 (logout automático)</p>
+<div class="codehilite"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">api</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./api&#39;</span><span class="w"></span>
+
+<span class="c1">// Exemplo de uso</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">api</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s1">&#39;/endpoint&#39;</span><span class="p">)</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">api</span><span class="p">.</span><span class="nx">post</span><span class="p">(</span><span class="s1">&#39;/endpoint&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">body</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h4>auth.service.js</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">authService</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./auth.service&#39;</span><span class="w"></span>
+
+<span class="k">await</span><span class="w"> </span><span class="nx">authService</span><span class="p">.</span><span class="nx">login</span><span class="p">(</span><span class="nx">email</span><span class="p">,</span><span class="w"> </span><span class="nx">senha</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">authService</span><span class="p">.</span><span class="nx">me</span><span class="p">()</span><span class="w"></span>
+<span class="nx">authService</span><span class="p">.</span><span class="nx">logout</span><span class="p">()</span><span class="w"></span>
+</code></pre></div>
+
+<h4>dashboard.service.js</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">dashboardService</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./dashboard.service&#39;</span><span class="w"></span>
+
+<span class="k">await</span><span class="w"> </span><span class="nx">dashboardService</span><span class="p">.</span><span class="nx">getStats</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">dashboardService</span><span class="p">.</span><span class="nx">getProximosAgendamentos</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">dashboardService</span><span class="p">.</span><span class="nx">getProfissionaisHoje</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">dashboardService</span><span class="p">.</span><span class="nx">getGraficoAgendamentos</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">dashboardService</span><span class="p">.</span><span class="nx">getEstatisticasPorEmpresa</span><span class="p">()</span><span class="w"></span>
+</code></pre></div>
+
+<h4>empresas.service.js</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">empresasService</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./empresas.service&#39;</span><span class="w"></span>
+
+<span class="k">await</span><span class="w"> </span><span class="nx">empresasService</span><span class="p">.</span><span class="nx">listar</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">empresasService</span><span class="p">.</span><span class="nx">criar</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h4>wizard.service.js</h4>
+<div class="codehilite"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">wizardService</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./wizard.service&#39;</span><span class="w"></span>
+
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">checkStatus</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">getEmpresaCompleta</span><span class="p">()</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">completar</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">updateEmpresa</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">updateHorarios</span><span class="p">(</span><span class="nx">horarios</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">updateServico</span><span class="p">(</span><span class="nx">servicoId</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">createServico</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">deleteServico</span><span class="p">(</span><span class="nx">servicoId</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">updateProfissional</span><span class="p">(</span><span class="nx">profissionalId</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="k">await</span><span class="w"> </span><span class="nx">wizardService</span><span class="p">.</span><span class="nx">deleteProfissional</span><span class="p">(</span><span class="nx">profissionalId</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Estilização</h3>
+<h4>TailwindCSS</h4>
+<p>Classes utilitárias para estilização rápida.</p>
+<p><strong>Cores Principais</strong>:
+- <code>primary</code>: Verde (#10b981)
+- <code>danger</code>: Vermelho (#ef4444)
+- <code>success</code>: Verde (#10b981)
+- <code>warning</code>: Amarelo (#f59e0b)</p>
+<p><strong>Exemplo</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="nt">&lt;div</span> <span class="na">className=</span><span class="s">&quot;bg-white rounded-lg shadow-md p-6&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;h2</span> <span class="na">className=</span><span class="s">&quot;text-2xl font-bold text-gray-800 mb-4&quot;</span><span class="nt">&gt;</span>
+    Título
+  <span class="nt">&lt;/h2&gt;</span>
+  <span class="nt">&lt;p</span> <span class="na">className=</span><span class="s">&quot;text-gray-600&quot;</span><span class="nt">&gt;</span>
+    Conteúdo
+  <span class="nt">&lt;/p&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div>
+
+<hr />
+<h2>🗄️ Banco de Dados</h2>
+<h3>Tabelas Principais</h3>
+<p>Para documentação completa do banco de dados, consulte: <code>DOCUMENTACAO_BANCO_DADOS.md</code></p>
+<h4>empresa</h4>
+<p>Armazena dados das empresas.</p>
+<p><strong>Colunas principais</strong>:
+- <code>empresa_id</code> (PK)
+- <code>empresa_nome</code>
+- <code>empresa_contato</code>
+- <code>cep</code>
+- <code>observacoes</code>
+- <code>empresa_contato_agente</code></p>
+<h4>login</h4>
+<p>Usuários do sistema.</p>
+<p><strong>Colunas principais</strong>:
+- <code>login_id</code> (PK)
+- <code>email</code>
+- <code>senha</code> (hash bcrypt)
+- <code>nome</code>
+- <code>empresa_id</code> (FK)
+- <code>nivel_acesso_id</code> (FK)</p>
+<h4>agendamento</h4>
+<p>Agendamentos realizados.</p>
+<p><strong>Colunas principais</strong>:
+- <code>agend_id</code> (PK)
+- <code>empresa_id</code> (FK)
+- <code>cliente_id</code> (FK)
+- <code>profissional_id</code> (FK)
+- <code>agend_data</code>
+- <code>agend_hora</code>
+- <code>agend_valor</code>
+- <code>status_agend_id</code> (FK)
+- <code>periodo</code> (tstzrange - calculado)</p>
+<h4>clientes</h4>
+<p>Clientes das empresas.</p>
+<p><strong>Colunas principais</strong>:
+- <code>cliente_id</code> (PK)
+- <code>empresa_id</code> (FK)
+- <code>cliente_nome</code>
+- <code>cliente_fone</code></p>
+<h4>profissional</h4>
+<p>Profissionais das empresas.</p>
+<p><strong>Colunas principais</strong>:
+- <code>profissional_id</code> (PK)
+- <code>empresa_id</code> (FK)
+- <code>profissional_nome</code>
+- <code>especialidade</code>
+- <code>profissional_contato</code>
+- <code>status</code> ('ativo'/'inativo')</p>
+<h4>servicos</h4>
+<p>Serviços oferecidos (global, sem empresa_id).</p>
+<p><strong>Colunas principais</strong>:
+- <code>servicos_id</code> (PK)
+- <code>servicos_nome</code>
+- <code>servicos_valor</code>
+- <code>servicos_duracao</code> (INTERVAL)
+- <code>status</code> ('ativo'/'inativo')</p>
+<h4>profissional_servico</h4>
+<p>Vínculo entre profissionais e serviços.</p>
+<p><strong>Colunas principais</strong>:
+- <code>profissional_id</code> (FK)
+- <code>servicos_id</code> (FK)</p>
+<h4>horario_f</h4>
+<p>Horários de funcionamento (cabeçalho).</p>
+<p><strong>Colunas principais</strong>:
+- <code>horario_f_id</code> (PK)</p>
+<h4>horario_det</h4>
+<p>Detalhes dos horários.</p>
+<p><strong>Colunas principais</strong>:
+- <code>horario_det_id</code> (PK)
+- <code>horario_f_id</code> (FK)
+- <code>dia_semana</code> (0-6)
+- <code>hora_inicio</code>
+- <code>hora_fim</code></p>
+<h4>profissional_horario</h4>
+<p>Vínculo entre profissionais e horários.</p>
+<p><strong>Colunas principais</strong>:
+- <code>profissional_id</code> (FK)
+- <code>horario_f_id</code> (FK)</p>
+<h4>instancia</h4>
+<p>Instâncias WhatsApp (Evolution API).</p>
+<p><strong>Colunas principais</strong>:
+- <code>instancia_id</code> (PK - UUID da Evolution)
+- <code>empresa_id</code> (FK)
+- <code>instancia_nome</code></p>
+<h3>Relacionamentos Importantes</h3>
+<div class="codehilite"><pre><span></span><code>empresa (1) ─────── (N) login
+empresa (1) ─────── (N) clientes
+empresa (1) ─────── (N) profissional
+empresa (1) ─────── (N) agendamento
+empresa (1) ─────── (1) instancia
+
+profissional (N) ─────── (N) servicos
+  (via profissional_servico)
+
+profissional (N) ─────── (N) horario_f
+  (via profissional_horario)
+
+agendamento (N) ─────── (1) clientes
+agendamento (N) ─────── (1) profissional
+agendamento (N) ─────── (1) status_agend
+</code></pre></div>
+
+<hr />
+<h2>🔐 Autenticação e Segurança</h2>
+<h3>JWT (JSON Web Tokens)</h3>
+<h4>Geração do Token</h4>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">jwt</span><span class="p">.</span><span class="nx">sign</span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="nx">user</span><span class="p">.</span><span class="nx">login_id</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">email</span><span class="o">:</span><span class="w"> </span><span class="nx">user</span><span class="p">.</span><span class="nx">email</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">empresa_id</span><span class="o">:</span><span class="w"> </span><span class="nx">user</span><span class="p">.</span><span class="nx">empresa_id</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">nivel_acesso_id</span><span class="o">:</span><span class="w"> </span><span class="nx">user</span><span class="p">.</span><span class="nx">nivel_acesso_id</span><span class="w"></span>
+<span class="w">  </span><span class="p">},</span><span class="w"></span>
+<span class="w">  </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">JWT_SECRET</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nx">expiresIn</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;24h&#39;</span><span class="w"> </span><span class="p">}</span><span class="w"></span>
+<span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Verificação do Token</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Middleware: auth.middleware.js</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">.</span><span class="nx">authorization</span><span class="o">?</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">)[</span><span class="mf">1</span><span class="p">]</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">decoded</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">jwt</span><span class="p">.</span><span class="nx">verify</span><span class="p">(</span><span class="nx">token</span><span class="p">,</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">JWT_SECRET</span><span class="p">)</span><span class="w"></span>
+<span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">decoded</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Hash de Senhas</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Ao criar usuário</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">hashedPassword</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">bcrypt</span><span class="p">.</span><span class="nx">hash</span><span class="p">(</span><span class="nx">senha</span><span class="p">,</span><span class="w"> </span><span class="mf">10</span><span class="p">)</span><span class="w"></span>
+
+<span class="c1">// Ao fazer login</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">isValid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">bcrypt</span><span class="p">.</span><span class="nx">compare</span><span class="p">(</span><span class="nx">senhaDigitada</span><span class="p">,</span><span class="w"> </span><span class="nx">senhaHashBanco</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Multi-Tenant Security</h3>
+<h4>Middleware de Isolamento</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// multiTenant.middleware.js</span><span class="w"></span>
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">multiTenantFilter</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span><span class="w"> </span><span class="nx">res</span><span class="p">,</span><span class="w"> </span><span class="nx">next</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">empresaId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">empresa_id</span><span class="w"></span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">nivelAcessoId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">nivel_acesso_id</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// Super Admin vê tudo</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">nivelAcessoId</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">SUPER_ADMIN_ID</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nx">req</span><span class="p">.</span><span class="nx">canAccessAllCompanies</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">next</span><span class="p">()</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// Usuários normais veem apenas sua empresa</span><span class="w"></span>
+<span class="w">  </span><span class="nx">req</span><span class="p">.</span><span class="nx">empresaFilter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">empresaId</span><span class="w"></span>
+<span class="w">  </span><span class="nx">next</span><span class="p">()</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Queries Filtradas</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Exemplo de query com filtro multi-tenant</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">isSuperAdmin</span><span class="w"></span>
+<span class="w">  </span><span class="o">?</span><span class="w"> </span><span class="s1">&#39;SELECT * FROM agendamento&#39;</span><span class="w"></span>
+<span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;SELECT * FROM agendamento WHERE empresa_id = $1&#39;</span><span class="w"></span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">isSuperAdmin</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="nx">empresaId</span><span class="p">]</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pool</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="nx">query</span><span class="p">,</span><span class="w"> </span><span class="nx">params</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Proteção de Rotas</h3>
+<h4>Frontend</h4>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span><span class="w"> </span><span class="n">ProtectedRoute</span><span class="w"> </span><span class="n">component</span><span class="w"></span>
+<span class="n">function</span><span class="w"> </span><span class="n">ProtectedRoute</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">user</span><span class="p">,</span><span class="w"> </span><span class="n">loading</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">useAuth</span><span class="p">()</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">loading</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="o">&lt;</span><span class="n">div</span><span class="o">&gt;</span><span class="n">Carregando</span><span class="o">...&lt;/</span><span class="n">div</span><span class="o">&gt;</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">user</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Navigate</span><span class="w"> </span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;/login&quot;</span><span class="w"> </span><span class="o">/&gt;</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Outlet</span><span class="w"> </span><span class="o">/&gt;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Backend</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Todas as rotas protegidas usam o middleware</span><span class="w"></span>
+<span class="nx">router</span><span class="p">.</span><span class="nx">use</span><span class="p">(</span><span class="nx">authenticateToken</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Variáveis de Ambiente</h3>
+<div class="codehilite"><pre><span></span><code># .env (Backend)
+PORT=3001
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=agendamento
+DATABASE_USER=postgres
+DATABASE_PASSWORD=senha
+JWT_SECRET=chave_secreta_muito_segura
+NODE_ENV=development
+</code></pre></div>
+
+<hr />
+<h2>🏢 Multi-Tenancy</h2>
+<h3>Conceito</h3>
+<p>Multi-tenancy permite que múltiplas empresas (tenants) usem a mesma aplicação, com dados completamente isolados entre si.</p>
+<h3>Implementação</h3>
+<h4>1. Isolamento por empresa_id</h4>
+<p>Todas as tabelas principais têm a coluna <code>empresa_id</code>:
+- <code>agendamento</code>
+- <code>clientes</code>
+- <code>profissional</code>
+- <code>login</code></p>
+<h4>2. Identificação da Empresa</h4>
+<p><strong>No Login</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// O token JWT inclui empresa_id</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">jwt</span><span class="p">.</span><span class="nx">sign</span><span class="p">({</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">id</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">email</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">empresa_id</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="nx">nivel_acesso_id</span><span class="w"> </span>
+<span class="p">},</span><span class="w"> </span><span class="nx">JWT_SECRET</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>Nas Requisições</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Middleware extrai empresa_id do token</span><span class="w"></span>
+<span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">empresa_id</span><span class="w"></span>
+</code></pre></div>
+
+<h4>3. Queries Filtradas</h4>
+<p><strong>Exemplo - Listar Agendamentos</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Usuário normal</span><span class="w"></span>
+<span class="nx">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">agendamento</span><span class="w"> </span>
+<span class="nx">WHERE</span><span class="w"> </span><span class="nx">empresa_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">$1</span><span class="w"></span>
+
+<span class="c1">// Super Admin</span><span class="w"></span>
+<span class="nx">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">agendamento</span><span class="w"></span>
+</code></pre></div>
+
+<h4>4. Instância WhatsApp</h4>
+<p>A identificação da empresa em mensagens WhatsApp é feita por <code>instancia_id</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Mensagem chega com instancia_id</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">instancia_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">message</span><span class="p">.</span><span class="nx">instance_id</span><span class="w"></span>
+
+<span class="c1">// Backend busca empresa</span><span class="w"></span>
+<span class="nx">SELECT</span><span class="w"> </span><span class="nx">empresa_id</span><span class="w"> </span><span class="nx">FROM</span><span class="w"> </span><span class="nx">instancia</span><span class="w"> </span>
+<span class="nx">WHERE</span><span class="w"> </span><span class="nx">instancia_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">$1</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Níveis de Acesso</h3>
+<h4>Super Admin (nivel_acesso_id = 1)</h4>
+<ul>
+<li>✅ Acesso a todas as empresas</li>
+<li>✅ Criar novas empresas</li>
+<li>✅ Ver dashboard consolidado</li>
+<li>✅ Ver estatísticas por empresa</li>
+</ul>
+<h4>Admin Empresa (nivel_acesso_id = 2)</h4>
+<ul>
+<li>✅ Acesso total à sua empresa</li>
+<li>✅ Gerenciar configurações</li>
+<li>✅ Gerenciar profissionais e serviços</li>
+<li>❌ Não vê outras empresas</li>
+</ul>
+<h4>Usuário Normal (nivel_acesso_id &gt;= 3)</h4>
+<ul>
+<li>✅ Acesso limitado à sua empresa</li>
+<li>❌ Não pode alterar configurações</li>
+<li>❌ Não vê outras empresas</li>
+</ul>
+<hr />
+<h2>🚀 Instalação e Configuração</h2>
+<h3>Pré-requisitos</h3>
+<ul>
+<li><strong>Node.js</strong>: v20.x ou superior</li>
+<li><strong>PostgreSQL</strong>: v12 ou superior</li>
+<li><strong>NVM</strong>: Node Version Manager (recomendado)</li>
+<li><strong>Git</strong>: Para controle de versão</li>
+</ul>
+<h3>Passo 1: Clonar o Repositório</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span> /home/alex/Software/script/agendamento
+</code></pre></div>
+
+<h3>Passo 2: Configurar Node.js</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Instalar NVM (se não tiver)</span>
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh <span class="p">|</span> bash
+
+<span class="c1"># Carregar NVM</span>
+<span class="nb">source</span> ~/.bashrc
+
+<span class="c1"># Instalar Node.js v20</span>
+nvm install <span class="m">20</span>
+nvm use <span class="m">20</span>
+
+<span class="c1"># Verificar versão</span>
+node --version  <span class="c1"># deve mostrar v20.x.x</span>
+</code></pre></div>
+
+<h3>Passo 3: Configurar Backend</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span> api
+
+<span class="c1"># Instalar dependências</span>
+npm install
+
+<span class="c1"># Criar arquivo .env</span>
+cat &gt; .env <span class="s">&lt;&lt; EOF</span>
+<span class="s">PORT=3001</span>
+<span class="s">DATABASE_HOST=localhost</span>
+<span class="s">DATABASE_PORT=5432</span>
+<span class="s">DATABASE_NAME=agendamento</span>
+<span class="s">DATABASE_USER=postgres</span>
+<span class="s">DATABASE_PASSWORD=SUA_SENHA</span>
+<span class="s">JWT_SECRET=$(openssl rand -base64 32)</span>
+<span class="s">NODE_ENV=development</span>
+<span class="s">EOF</span>
+
+<span class="c1"># Iniciar servidor</span>
+npm run dev
+</code></pre></div>
+
+<h3>Passo 4: Configurar Frontend</h3>
+<div class="codehilite"><pre><span></span><code><span class="nb">cd</span> ../site
+
+<span class="c1"># Instalar dependências</span>
+npm install
+
+<span class="c1"># Iniciar servidor de desenvolvimento</span>
+npm run dev
+</code></pre></div>
+
+<h3>Passo 5: Configurar Banco de Dados</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Conectar ao PostgreSQL</span>
+psql -U postgres
+
+<span class="c1"># Criar banco de dados</span>
+CREATE DATABASE agendamento<span class="p">;</span>
+
+<span class="c1"># Sair do psql</span>
+<span class="se">\q</span>
+
+<span class="c1"># Restaurar estrutura</span>
+psql -U postgres -d agendamento -f estrutura_banco.sql
+
+<span class="c1"># (Opcional) Restaurar backup</span>
+psql -U postgres -d agendamento -f backup_25_10_25
+</code></pre></div>
+
+<h3>Passo 6: Acessar Aplicação</h3>
+<ul>
+<li><strong>Frontend</strong>: http://localhost:5173</li>
+<li><strong>Backend</strong>: http://localhost:3001</li>
+<li><strong>Login</strong>: Use as credenciais do banco de dados</li>
+</ul>
+<h3>Portas Utilizadas</h3>
+<table>
+<thead>
+<tr>
+<th>Serviço</th>
+<th>Porta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend (Vite)</td>
+<td>5173</td>
+</tr>
+<tr>
+<td>Backend (Express)</td>
+<td>3001</td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td>5432</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>👨‍💻 Guia de Desenvolvimento</h2>
+<h3>Estrutura de Commits</h3>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Formato recomendado</span>
+git commit -m <span class="s2">&quot;tipo: descrição curta&quot;</span>
+
+<span class="c1"># Tipos:</span>
+<span class="c1"># feat: Nova funcionalidade</span>
+<span class="c1"># fix: Correção de bug</span>
+<span class="c1"># docs: Documentação</span>
+<span class="c1"># style: Formatação (não afeta código)</span>
+<span class="c1"># refactor: Refatoração</span>
+<span class="c1"># test: Testes</span>
+<span class="c1"># chore: Tarefas de manutenção</span>
+</code></pre></div>
+
+<p><strong>Exemplos</strong>:</p>
+<div class="codehilite"><pre><span></span><code>git commit -m <span class="s2">&quot;feat: adicionar gráfico de linhas no dashboard&quot;</span>
+git commit -m <span class="s2">&quot;fix: corrigir filtro multi-tenant em agendamentos&quot;</span>
+git commit -m <span class="s2">&quot;docs: atualizar documentação da API&quot;</span>
+</code></pre></div>
+
+<h3>Boas Práticas</h3>
+<h4>Backend</h4>
+<ol>
+<li><strong>Sempre usar transações para operações múltiplas</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pool</span><span class="p">.</span><span class="nx">connect</span><span class="p">()</span><span class="w"></span>
+<span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;BEGIN&#39;</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// operações</span><span class="w"></span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;COMMIT&#39;</span><span class="p">)</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">client</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="s1">&#39;ROLLBACK&#39;</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">throw</span><span class="w"> </span><span class="nx">error</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="k">finally</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nx">client</span><span class="p">.</span><span class="nx">release</span><span class="p">()</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Validar entrada de dados</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">email</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">senha</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="p">(</span><span class="mf">400</span><span class="p">).</span><span class="nx">json</span><span class="p">({</span><span class="w"></span>
+<span class="w">    </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Email e senha são obrigatórios&#39;</span><span class="w"></span>
+<span class="w">  </span><span class="p">})</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Usar prepared statements (proteção SQL injection)</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">// BOM</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pool</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="s1">&#39;SELECT * FROM login WHERE email = $1&#39;</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="p">[</span><span class="nx">email</span><span class="p">]</span><span class="w"></span>
+<span class="p">)</span><span class="w"></span>
+
+<span class="c1">// RUIM (vulnerável a SQL injection)</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pool</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="sb">`SELECT * FROM login WHERE email = &#39;</span><span class="si">${</span><span class="nx">email</span><span class="si">}</span><span class="sb">&#39;`</span><span class="w"></span>
+<span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Tratar erros adequadamente</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// código</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Erro detalhado:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="p">(</span><span class="mf">500</span><span class="p">).</span><span class="nx">json</span><span class="p">({</span><span class="w"></span>
+<span class="w">    </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Mensagem amigável para o usuário&#39;</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="nx">error</span><span class="o">:</span><span class="w"> </span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">NODE_ENV</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="s1">&#39;development&#39;</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="nx">error</span><span class="p">.</span><span class="nx">message</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kc">undefined</span><span class="w"></span>
+<span class="w">  </span><span class="p">})</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Frontend</h4>
+<ol>
+<li><strong>Usar hooks corretamente</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">// useEffect para carregar dados</span><span class="w"></span>
+<span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">carregarDados</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">getData</span><span class="p">()</span><span class="w"></span>
+<span class="w">    </span><span class="nx">setData</span><span class="p">(</span><span class="nx">data</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="nx">carregarDados</span><span class="p">()</span><span class="w"></span>
+<span class="p">},</span><span class="w"> </span><span class="p">[])</span><span class="w"> </span><span class="c1">// dependências corretas</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Validar formulários</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">handleSubmit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">()</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">email</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">!</span><span class="nx">senha</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nx">setError</span><span class="p">(</span><span class="s1">&#39;Preencha todos os campos&#39;</span><span class="p">)</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// continuar</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Feedback visual</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">loading</span><span class="p">,</span><span class="w"> </span><span class="nx">setLoading</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useState</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span><span class="w"></span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">handleAction</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nx">setLoading</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">await</span><span class="w"> </span><span class="nx">service</span><span class="p">.</span><span class="nx">action</span><span class="p">()</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// sucesso</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="c1">// erro</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">finally</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nx">setLoading</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<ol>
+<li><strong>Componentização</strong>:</li>
+</ol>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Dividir componentes grandes em menores</span><span class="w"></span>
+<span class="c1">// Reutilizar componentes comuns (Button, Input, Card)</span><span class="w"></span>
+<span class="c1">// Manter componentes focados em uma responsabilidade</span><span class="w"></span>
+</code></pre></div>
+
+<h3>Adicionando Nova Funcionalidade</h3>
+<h4>Exemplo: Adicionar página de Relatórios</h4>
+<p><strong>1. Backend - Model</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// api/src/models/relatorios.model.js</span><span class="w"></span>
+<span class="k">export</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">getRelatorioMensal</span><span class="p">(</span><span class="nx">empresaId</span><span class="p">,</span><span class="w"> </span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span><span class="nx">ano</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`</span>
+<span class="sb">    SELECT </span>
+<span class="sb">      COUNT(*) as total_agendamentos,</span>
+<span class="sb">      SUM(agend_valor) as receita_total</span>
+<span class="sb">    FROM agendamento</span>
+<span class="sb">    WHERE empresa_id = $1</span>
+<span class="sb">    AND EXTRACT(MONTH FROM agend_data) = $2</span>
+<span class="sb">    AND EXTRACT(YEAR FROM agend_data) = $3</span>
+<span class="sb">  `</span><span class="w"></span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pool</span><span class="p">.</span><span class="nx">query</span><span class="p">(</span><span class="nx">query</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="nx">empresaId</span><span class="p">,</span><span class="w"> </span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span><span class="nx">ano</span><span class="p">])</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">result</span><span class="p">.</span><span class="nx">rows</span><span class="p">[</span><span class="mf">0</span><span class="p">]</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>2. Backend - Controller</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// api/src/controllers/relatorios.controller.js</span><span class="w"></span>
+<span class="k">export</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">getRelatorioMensal</span><span class="p">(</span><span class="nx">req</span><span class="p">,</span><span class="w"> </span><span class="nx">res</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">empresaId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">.</span><span class="nx">empresa_id</span><span class="w"></span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span><span class="nx">ano</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">query</span><span class="w"></span>
+
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">relatoriosModel</span><span class="p">.</span><span class="nx">getRelatorioMensal</span><span class="p">(</span><span class="w"></span>
+<span class="w">      </span><span class="nx">empresaId</span><span class="p">,</span><span class="w"> </span>
+<span class="w">      </span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span>
+<span class="w">      </span><span class="nx">ano</span><span class="w"></span>
+<span class="w">    </span><span class="p">)</span><span class="w"></span>
+
+<span class="w">    </span><span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">({</span><span class="w"> </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">})</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;Erro:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="p">)</span><span class="w"></span>
+<span class="w">    </span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="p">(</span><span class="mf">500</span><span class="p">).</span><span class="nx">json</span><span class="p">({</span><span class="w"></span>
+<span class="w">      </span><span class="nx">success</span><span class="o">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="nx">message</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Erro ao gerar relatório&#39;</span><span class="w"></span>
+<span class="w">    </span><span class="p">})</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>3. Backend - Route</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// api/src/routes/relatorios.routes.js</span><span class="w"></span>
+<span class="k">import</span><span class="w"> </span><span class="nx">express</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;express&#39;</span><span class="w"></span>
+<span class="k">import</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">controller</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;../controllers/relatorios.controller.js&#39;</span><span class="w"></span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">router</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">express</span><span class="p">.</span><span class="nx">Router</span><span class="p">()</span><span class="w"></span>
+
+<span class="nx">router</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s1">&#39;/mensal&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">controller</span><span class="p">.</span><span class="nx">getRelatorioMensal</span><span class="p">)</span><span class="w"></span>
+
+<span class="k">export</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="nx">router</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>4. Backend - Registrar rota</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// api/src/app.js</span><span class="w"></span>
+<span class="k">import</span><span class="w"> </span><span class="nx">relatoriosRoutes</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./routes/relatorios.routes.js&#39;</span><span class="w"></span>
+
+<span class="nx">app</span><span class="p">.</span><span class="nx">use</span><span class="p">(</span><span class="s1">&#39;/api/relatorios&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">authenticateToken</span><span class="p">,</span><span class="w"> </span><span class="nx">relatoriosRoutes</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>5. Frontend - Service</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// site/src/services/relatorios.service.js</span><span class="w"></span>
+<span class="k">import</span><span class="w"> </span><span class="nx">api</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;./api&#39;</span><span class="w"></span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">relatoriosService</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="nx">getRelatorioMensal</span><span class="o">:</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span><span class="nx">ano</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">api</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s1">&#39;/relatorios/mensal&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="nx">params</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">mes</span><span class="p">,</span><span class="w"> </span><span class="nx">ano</span><span class="w"> </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="p">})</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">response</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nx">data</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="k">export</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="nx">relatoriosService</span><span class="w"></span>
+</code></pre></div>
+
+<p><strong>6. Frontend - Página</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span> <span class="n">site</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">pages</span><span class="o">/</span><span class="n">Relatorios</span><span class="o">/</span><span class="n">index</span><span class="o">.</span><span class="n">jsx</span>
+<span class="kn">import</span> <span class="p">{</span> <span class="n">useState</span><span class="p">,</span> <span class="n">useEffect</span> <span class="p">}</span> <span class="kn">from</span> <span class="s1">&#39;react&#39;</span>
+<span class="kn">import</span> <span class="nn">relatoriosService</span> <span class="kn">from</span> <span class="s1">&#39;../../services/relatorios.service&#39;</span>
+<span class="kn">import</span> <span class="nn">Card</span><span class="o">,</span> <span class="p">{</span> <span class="n">CardHeader</span><span class="p">,</span> <span class="n">CardBody</span> <span class="p">}</span> <span class="kn">from</span> <span class="s1">&#39;../../components/ui/Card&#39;</span>
+
+<span class="n">export</span> <span class="n">default</span> <span class="n">function</span> <span class="n">Relatorios</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">const</span> <span class="p">[</span><span class="n">dados</span><span class="p">,</span> <span class="n">setDados</span><span class="p">]</span> <span class="o">=</span> <span class="n">useState</span><span class="p">(</span><span class="n">null</span><span class="p">)</span>
+  <span class="n">const</span> <span class="p">[</span><span class="n">loading</span><span class="p">,</span> <span class="n">setLoading</span><span class="p">]</span> <span class="o">=</span> <span class="n">useState</span><span class="p">(</span><span class="n">true</span><span class="p">)</span>
+
+  <span class="n">useEffect</span><span class="p">(()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="k">async</span> <span class="n">function</span> <span class="n">carregarDados</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">try</span> <span class="p">{</span>
+        <span class="n">const</span> <span class="n">mes</span> <span class="o">=</span> <span class="n">new</span> <span class="n">Date</span><span class="p">()</span><span class="o">.</span><span class="n">getMonth</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">const</span> <span class="n">ano</span> <span class="o">=</span> <span class="n">new</span> <span class="n">Date</span><span class="p">()</span><span class="o">.</span><span class="n">getFullYear</span><span class="p">()</span>
+        <span class="n">const</span> <span class="n">data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">relatoriosService</span><span class="o">.</span><span class="n">getRelatorioMensal</span><span class="p">(</span><span class="n">mes</span><span class="p">,</span> <span class="n">ano</span><span class="p">)</span>
+        <span class="n">setDados</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+      <span class="p">}</span> <span class="n">catch</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">console</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Erro:&#39;</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+      <span class="p">}</span> <span class="k">finally</span> <span class="p">{</span>
+        <span class="n">setLoading</span><span class="p">(</span><span class="n">false</span><span class="p">)</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">carregarDados</span><span class="p">()</span>
+  <span class="p">},</span> <span class="p">[])</span>
+
+  <span class="k">if</span> <span class="p">(</span><span class="n">loading</span><span class="p">)</span> <span class="k">return</span> <span class="o">&lt;</span><span class="n">div</span><span class="o">&gt;</span><span class="n">Carregando</span><span class="o">...&lt;/</span><span class="n">div</span><span class="o">&gt;</span>
+
+  <span class="k">return</span> <span class="p">(</span>
+    <span class="o">&lt;</span><span class="n">div</span><span class="o">&gt;</span>
+      <span class="o">&lt;</span><span class="n">h1</span> <span class="n">className</span><span class="o">=</span><span class="s2">&quot;text-2xl font-bold mb-6&quot;</span><span class="o">&gt;</span><span class="n">Relatórios</span><span class="o">&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+      <span class="o">&lt;</span><span class="n">Card</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="n">CardHeader</span><span class="o">&gt;</span>
+          <span class="o">&lt;</span><span class="n">h3</span><span class="o">&gt;</span><span class="n">Relatório</span> <span class="n">Mensal</span><span class="o">&lt;/</span><span class="n">h3</span><span class="o">&gt;</span>
+        <span class="o">&lt;/</span><span class="n">CardHeader</span><span class="o">&gt;</span>
+        <span class="o">&lt;</span><span class="n">CardBody</span><span class="o">&gt;</span>
+          <span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">Total</span> <span class="n">de</span> <span class="n">Agendamentos</span><span class="p">:</span> <span class="p">{</span><span class="n">dados</span><span class="err">?</span><span class="o">.</span><span class="n">total_agendamentos</span><span class="p">}</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+          <span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="n">Receita</span> <span class="n">Total</span><span class="p">:</span> <span class="n">R</span><span class="err">$</span> <span class="p">{</span><span class="n">dados</span><span class="err">?</span><span class="o">.</span><span class="n">receita_total</span><span class="p">}</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+        <span class="o">&lt;/</span><span class="n">CardBody</span><span class="o">&gt;</span>
+      <span class="o">&lt;/</span><span class="n">Card</span><span class="o">&gt;</span>
+    <span class="o">&lt;/</span><span class="n">div</span><span class="o">&gt;</span>
+  <span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+
+<p><strong>7. Frontend - Adicionar rota</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span> <span class="n">site</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">router</span><span class="o">.</span><span class="n">jsx</span>
+<span class="kn">import</span> <span class="nn">Relatorios</span> <span class="kn">from</span> <span class="s1">&#39;./pages/Relatorios&#39;</span>
+
+<span class="o">&lt;</span><span class="n">Route</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/relatorios&quot;</span> <span class="n">element</span><span class="o">=</span><span class="p">{</span><span class="o">&lt;</span><span class="n">Relatorios</span> <span class="o">/&gt;</span><span class="p">}</span> <span class="o">/&gt;</span>
+</code></pre></div>
+
+<p><strong>8. Frontend - Adicionar ao menu</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="o">//</span> <span class="n">site</span><span class="o">/</span><span class="n">src</span><span class="o">/</span><span class="n">components</span><span class="o">/</span><span class="n">layout</span><span class="o">/</span><span class="n">Sidebar</span><span class="o">.</span><span class="n">jsx</span>
+<span class="kn">import</span> <span class="p">{</span> <span class="n">FileText</span> <span class="p">}</span> <span class="kn">from</span> <span class="s1">&#39;lucide-react&#39;</span>
+
+<span class="n">const</span> <span class="n">menuItems</span> <span class="o">=</span> <span class="p">[</span>
+  <span class="o">//</span> <span class="o">...</span> <span class="n">outros</span> <span class="n">itens</span>
+  <span class="p">{</span> <span class="n">path</span><span class="p">:</span> <span class="s1">&#39;/relatorios&#39;</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="s1">&#39;Relatórios&#39;</span><span class="p">,</span> <span class="n">icon</span><span class="p">:</span> <span class="n">FileText</span> <span class="p">},</span>
+<span class="p">]</span>
+</code></pre></div>
+
+<hr />
+<h2>🐛 Troubleshooting</h2>
+<h3>Problemas Comuns</h3>
+<h4>1. Erro: "Cannot find module"</h4>
+<p><strong>Causa</strong>: Dependências não instaladas ou versão errada do Node.js</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Verificar versão do Node</span>
+node --version  <span class="c1"># deve ser v20.x</span>
+
+<span class="c1"># Reinstalar dependências</span>
+rm -rf node_modules package-lock.json
+npm install
+</code></pre></div>
+
+<h4>2. Erro: "EADDRINUSE: address already in use"</h4>
+<p><strong>Causa</strong>: Porta já está sendo usada</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Encontrar processo usando a porta</span>
+lsof -i :3001  <span class="c1"># ou :5173</span>
+
+<span class="c1"># Matar processo</span>
+<span class="nb">kill</span> -9 &lt;PID&gt;
+
+<span class="c1"># Ou mudar a porta no .env (backend) ou vite.config.js (frontend)</span>
+</code></pre></div>
+
+<h4>3. Erro: "Connection refused" ao conectar no banco</h4>
+<p><strong>Causa</strong>: PostgreSQL não está rodando ou credenciais incorretas</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Verificar se PostgreSQL está rodando</span>
+sudo systemctl status postgresql
+
+<span class="c1"># Iniciar PostgreSQL</span>
+sudo systemctl start postgresql
+
+<span class="c1"># Verificar credenciais no .env</span>
+cat api/.env
+</code></pre></div>
+
+<h4>4. Erro: "JWT malformed" ou "Invalid token"</h4>
+<p><strong>Causa</strong>: Token JWT inválido ou expirado</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Frontend: Limpar localStorage</span>
+localStorage.clear<span class="o">()</span>
+
+<span class="c1"># Fazer login novamente</span>
+</code></pre></div>
+
+<h4>5. Erro: "Cannot read property of undefined"</h4>
+<p><strong>Causa</strong>: Dados não carregados ou estrutura incorreta</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Usar optional chaining</span><span class="w"></span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">valor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">dados</span><span class="o">?</span><span class="p">.</span><span class="nx">propriedade</span><span class="o">?</span><span class="p">.</span><span class="nx">subpropriedade</span><span class="w"></span>
+
+<span class="c1">// Verificar se dados existem antes de usar</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">dados</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">dados</span><span class="p">.</span><span class="nx">propriedade</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// usar dados</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>6. Dashboard não mostra dados</h4>
+<p><strong>Causa</strong>: Filtro multi-tenant ou dados não existem</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1"># Verificar no backend se a query está correta</span>
+console.log<span class="o">(</span><span class="s1">&#39;empresa_id:&#39;</span>, req.user.empresa_id<span class="o">)</span>
+console.log<span class="o">(</span><span class="s1">&#39;nivel_acesso_id:&#39;</span>, req.user.nivel_acesso_id<span class="o">)</span>
+
+<span class="c1"># Verificar se há dados no banco</span>
+psql -U postgres -d agendamento
+SELECT COUNT<span class="o">(</span>*<span class="o">)</span> FROM agendamento WHERE <span class="nv">empresa_id</span> <span class="o">=</span> <span class="s1">&#39;uuid&#39;</span><span class="p">;</span>
+</code></pre></div>
+
+<h4>7. Gráfico não aparece</h4>
+<p><strong>Causa</strong>: Dados vazios ou erro no cálculo</p>
+<p><strong>Solução</strong>:</p>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Verificar se graficoData tem dados</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;graficoData:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">graficoData</span><span class="p">)</span><span class="w"></span>
+
+<span class="c1">// Adicionar fallback</span><span class="w"></span>
+<span class="p">{</span><span class="nx">graficoData</span><span class="p">.</span><span class="nx">length</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">0</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="o">&lt;</span><span class="nx">div</span><span class="o">&gt;</span><span class="nx">Nenhum</span><span class="w"> </span><span class="nx">dado</span><span class="w"> </span><span class="nx">disponível</span><span class="o">&lt;</span><span class="err">/div&gt;</span><span class="w"></span>
+<span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// renderizar gráfico</span><span class="w"></span>
+<span class="p">)}</span><span class="w"></span>
+</code></pre></div>
+
+<h4>8. Erro ao excluir profissional</h4>
+<p><strong>Causa</strong>: Validações de integridade</p>
+<p><strong>Solução</strong>:
+- Verificar se há serviços ativos vinculados
+- Verificar se há agendamentos históricos
+- Desvincular serviços antes de excluir
+- Usar soft delete (status = 'inativo')</p>
+<h3>Logs e Debugging</h3>
+<h4>Backend</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// Adicionar logs detalhados</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;📊 Dados recebidos:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;👤 Usuário:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">req</span><span class="p">.</span><span class="nx">user</span><span class="p">)</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;✅ Resultado:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">result</span><span class="p">)</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="s1">&#39;❌ Erro:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="p">.</span><span class="nx">message</span><span class="p">,</span><span class="w"> </span><span class="nx">error</span><span class="p">.</span><span class="nx">stack</span><span class="p">)</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Frontend</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">// React DevTools</span><span class="w"></span>
+<span class="c1">// Instalar extensão no navegador</span><span class="w"></span>
+
+<span class="c1">// Console logs</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;Estado atual:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">state</span><span class="p">)</span><span class="w"></span>
+<span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span><span class="s1">&#39;Props:&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">props</span><span class="p">)</span><span class="w"></span>
+
+<span class="c1">// Debugger</span><span class="w"></span>
+<span class="k">debugger</span><span class="w"> </span><span class="c1">// pausa execução</span><span class="w"></span>
+</code></pre></div>
+
+<h4>Banco de Dados</h4>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- Verificar dados</span>
+<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">empresa</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">empresa_id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;uuid&#39;</span><span class="p">;</span><span class="w"></span>
+
+<span class="c1">-- Verificar logs do PostgreSQL</span>
+<span class="n">sudo</span><span class="w"> </span><span class="n">tail</span><span class="w"> </span><span class="o">-</span><span class="n">f</span><span class="w"> </span><span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">postgresql</span><span class="o">/</span><span class="n">postgresql</span><span class="o">-*</span><span class="p">.</span><span class="n">log</span><span class="w"></span>
+</code></pre></div>
+
+<hr />
+<h2>📝 Notas Finais</h2>
+<h3>Próximos Passos Sugeridos</h3>
+<ol>
+<li><strong>Testes Automatizados</strong></li>
+<li>Testes unitários (Jest)</li>
+<li>Testes de integração</li>
+<li>
+<p>Testes E2E (Cypress)</p>
+</li>
+<li>
+<p><strong>Deploy</strong></p>
+</li>
+<li>Configurar CI/CD</li>
+<li>Deploy em servidor (AWS, DigitalOcean, etc.)</li>
+<li>
+<p>Configurar domínio e SSL</p>
+</li>
+<li>
+<p><strong>Melhorias de Performance</strong></p>
+</li>
+<li>Cache (Redis)</li>
+<li>Otimização de queries</li>
+<li>
+<p>Lazy loading de componentes</p>
+</li>
+<li>
+<p><strong>Funcionalidades Adicionais</strong></p>
+</li>
+<li>Notificações push</li>
+<li>Exportação de relatórios (PDF, Excel)</li>
+<li>Integração com pagamentos</li>
+<li>App mobile (React Native)</li>
+</ol>
+<h3>Recursos Úteis</h3>
+<ul>
+<li><strong>React</strong>: https://react.dev</li>
+<li><strong>Express.js</strong>: https://expressjs.com</li>
+<li><strong>PostgreSQL</strong>: https://www.postgresql.org/docs</li>
+<li><strong>TailwindCSS</strong>: https://tailwindcss.com</li>
+<li><strong>JWT</strong>: https://jwt.io</li>
+</ul>
+<h3>Contato e Suporte</h3>
+<p>Para dúvidas ou suporte, consulte:
+- Documentação do banco: <code>DOCUMENTACAO_BANCO_DADOS.md</code>
+- Documentação de exclusão: <code>EXCLUSAO_SEGURA.md</code>
+- Código fonte: Comentários inline</p>
+<hr />
+<p><strong>Versão</strong>: 1.0<br />
+<strong>Data</strong>: 26 de Outubro de 2025<br />
+<strong>Desenvolvido para</strong>: AIResolve - Sistema de Agendamento  </p>
+<hr />
+</body>
+</html>

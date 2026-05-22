@@ -1,0 +1,67 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║              ⚠️  PROBLEMA: Node.js Desatualizado                 ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+🔴 ERRO ATUAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Versão atual: Node.js v12.22.9
+Versão necessária: Node.js v18+ ou v20+
+
+O Vite 5 (frontend) não funciona com Node.js v12.
+
+✅ SOLUÇÃO: Atualizar Node.js
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPÇÃO 1: Instalar NVM (Recomendado)
+────────────────────────────────────
+
+Execute estes comandos no terminal:
+
+1. Baixar e instalar NVM:
+   wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+2. Recarregar terminal:
+   source ~/.bashrc
+
+3. Instalar Node.js 20:
+   nvm install 20
+   nvm use 20
+   nvm alias default 20
+
+4. Verificar:
+   node --version
+
+5. Iniciar frontend:
+   cd /home/alex/Software/script/agendamento/site
+   npm run dev
+
+
+OPÇÃO 2: Instalar via APT (Mais Simples)
+─────────────────────────────────────────
+
+1. Adicionar repositório NodeSource:
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+2. Instalar Node.js 20:
+   sudo apt-get install -y nodejs
+
+3. Verificar:
+   node --version
+
+4. Iniciar frontend:
+   cd /home/alex/Software/script/agendamento/site
+   npm run dev
+
+
+📝 NOTA IMPORTANTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Backend está funcionando normalmente (porta 5000)
+❌ Frontend precisa de Node.js atualizado para funcionar
+
+Após atualizar o Node.js, a aplicação funcionará perfeitamente!
+
+╔══════════════════════════════════════════════════════════════════╗
+║          Consulte ATUALIZAR_NODEJS.md para mais detalhes        ║
+╚══════════════════════════════════════════════════════════════════╝
