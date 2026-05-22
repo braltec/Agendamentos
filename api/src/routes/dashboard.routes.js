@@ -2,6 +2,7 @@ import express from 'express'
 import {
   getVisaoGeral,
   getGestaoAgenda,
+  getClientes,
   getDashboardStats,
   getProximosAgendamentos,
   getProfissionaisHoje,
@@ -20,6 +21,9 @@ router.get('/visao-geral', getVisaoGeral)
 
 // Buscar cards operacionais da aba Gestão de Agenda
 router.get('/gestao-agenda', getGestaoAgenda)
+
+// Buscar cards da aba Clientes
+router.get('/clientes', getClientes)
 
 // Buscar estatísticas do dashboard
 router.get('/stats', getDashboardStats)

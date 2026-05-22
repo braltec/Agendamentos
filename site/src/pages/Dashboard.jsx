@@ -32,6 +32,7 @@ import wizardService from '../services/wizard.service'
 import dashboardService from '../services/dashboard.service'
 import { useAuth } from '../contexts/AuthContext'
 import AgendaDisponibilidade from './Dashboard/AgendaDisponibilidade'
+import ClientesDashboard from './Dashboard/Clientes'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -207,6 +208,11 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('visao-geral')
 
   const isSuperAdmin = user?.nivel_acesso_id === SUPER_ADMIN_ID
+  const activeTabTitle = {
+    'visao-geral': 'Visão Geral',
+    'agenda-disponibilidade': 'Agenda e Disponibilidade',
+    clientes: 'Clientes',
+  }[activeTab] || 'Visão Geral'
 
   useEffect(() => {
     const checkWizard = async () => {
@@ -277,9 +283,7 @@ export default function Dashboard() {
       <div className="flex flex-col gap-2">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">
-            {activeTab === 'visao-geral' ? 'Visão Geral' : 'Agenda e Disponibilidade'}
-          </p>
+          <p className="text-gray-600 mt-1">{activeTabTitle}</p>
         </div>
         <div className="inline-flex w-fit rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
           Período atual
@@ -311,9 +315,23 @@ export default function Dashboard() {
           <Calendar className="w-4 h-4" />
           Agenda e Disponibilidade
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('clientes')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'clientes'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Clientes
+        </button>
       </div>
 
-      {activeTab === 'agenda-disponibilidade' ? (
+      {activeTab === 'clientes' ? (
+        <ClientesDashboard />
+      ) : activeTab === 'agenda-disponibilidade' ? (
         <AgendaDisponibilidade />
       ) : (
         <>

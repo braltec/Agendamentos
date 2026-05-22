@@ -13,6 +13,12 @@ export const dashboardService = {
     return response.data
   },
 
+  // Buscar cards da aba Clientes
+  async getClientes() {
+    const response = await api.get('/dashboard/clientes')
+    return response.data
+  },
+
   // Buscar estatísticas do dashboard
   async getStats() {
     const response = await api.get('/dashboard/stats')

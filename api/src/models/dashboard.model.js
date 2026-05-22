@@ -1058,6 +1058,235 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
   }
 }
 
+async function getClientesCards(empresaId, isSuperAdmin) {
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
+        CURRENT_TIMESTAMP AS agora,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '30 days')::date AS inicio_30_dias,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '60 days')::date AS limite_inativo,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '365 days')::date AS limite_base_antiga,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_retorno
+    ),
+    status_classificado AS (
+      SELECT
+        status_agend_id,
+        status_agend_nome,
+        LOWER(status_agend_nome) LIKE '%cancel%' AS cancelado
+      FROM status_agend
+    ),
+    clientes_base AS (
+      SELECT
+        c.clientes_id,
+        c.empresa_id,
+        c.clientes_nome,
+        c.clientes_telefone,
+        c.clientes_dt_criacao
+      FROM clientes c
+      WHERE true
+        ${scopedAnd('c', isSuperAdmin)}
+    ),
+    agendamentos_base AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        a.clientes_id,
+        a.agend_data,
+        a.agend_inicio,
+        a.agend_valor,
+        sc.status_agend_nome,
+        sc.cancelado
+      FROM agendamento a
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      WHERE true
+        ${scopedAnd('a', isSuperAdmin)}
+    ),
+    receita_servicos AS (
+      SELECT
+        ags.agend_id,
+        SUM(ags.valor_aplicado)::numeric AS valor_servicos
+      FROM agendamento_servico ags
+      JOIN agendamentos_base a ON a.agend_id = ags.agend_id
+      GROUP BY ags.agend_id
+    ),
+    valores_agendamento AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        a.clientes_id,
+        a.agend_data,
+        a.agend_inicio,
+        a.cancelado,
+        NOT a.cancelado AS atividade_real,
+        COALESCE(rs.valor_servicos, a.agend_valor, 0)::numeric AS valor_total
+      FROM agendamentos_base a
+      LEFT JOIN receita_servicos rs ON rs.agend_id = a.agend_id
+    ),
+    agendamentos_validos AS (
+      SELECT *
+      FROM valores_agendamento
+      WHERE atividade_real
+    ),
+    agendamentos_validos_passados AS (
+      SELECT *
+      FROM agendamentos_validos
+      WHERE agend_inicio <= (SELECT agora FROM periodo)
+    ),
+    clientes_mes AS (
+      SELECT
+        clientes_id,
+        COUNT(DISTINCT agend_id) AS total_agendamentos,
+        COALESCE(SUM(valor_total), 0)::numeric AS receita_total
+      FROM agendamentos_validos
+      WHERE agend_data >= (SELECT inicio_mes FROM periodo)
+        AND agend_data < (SELECT fim_mes FROM periodo)
+      GROUP BY clientes_id
+    ),
+    clientes_recorrentes_mes AS (
+      SELECT clientes_id
+      FROM clientes_mes
+      WHERE total_agendamentos >= 2
+    ),
+    clientes_ativos_30_dias AS (
+      SELECT DISTINCT clientes_id
+      FROM agendamentos_validos_passados
+      WHERE agend_data >= (SELECT inicio_30_dias FROM periodo)
+        AND agend_data <= (SELECT hoje FROM periodo)
+    ),
+    clientes_historico AS (
+      SELECT
+        cb.clientes_id,
+        MAX(avp.agend_data) AS ultimo_agendamento,
+        COUNT(DISTINCT avp.agend_id) AS total_agendamentos,
+        COALESCE(SUM(avp.valor_total), 0)::numeric AS receita_historica,
+        EXISTS (
+          SELECT 1
+          FROM agendamentos_validos avf
+          WHERE avf.clientes_id = cb.clientes_id
+            AND avf.agend_inicio > (SELECT agora FROM periodo)
+        ) AS possui_agendamento_futuro
+      FROM clientes_base cb
+      LEFT JOIN agendamentos_validos_passados avp ON avp.clientes_id = cb.clientes_id
+      GROUP BY cb.clientes_id
+    ),
+    clientes_inativos AS (
+      SELECT *
+      FROM clientes_historico
+      WHERE total_agendamentos > 0
+        AND NOT possui_agendamento_futuro
+        -- Mantemos a métrica acionável: clientes muito antigos ficam fora
+        -- para não inflar a leitura operacional de reativação.
+        AND ultimo_agendamento < (SELECT limite_inativo FROM periodo)
+        AND ultimo_agendamento >= (SELECT limite_base_antiga FROM periodo)
+    ),
+    intervalos_cliente AS (
+      SELECT
+        clientes_id,
+        agend_data,
+        LAG(agend_data) OVER (PARTITION BY clientes_id ORDER BY agend_data, agend_inicio) AS agend_data_anterior
+      FROM agendamentos_validos_passados
+    ),
+    retorno_base AS (
+      SELECT
+        clientes_id,
+        MAX(agend_data) AS ultimo_agendamento,
+        ROUND(AVG(agend_data - agend_data_anterior) FILTER (
+          WHERE agend_data_anterior IS NOT NULL
+            AND agend_data > agend_data_anterior
+        ))::int AS media_intervalo_dias
+      FROM intervalos_cliente
+      GROUP BY clientes_id
+      HAVING COUNT(*) >= 2
+        AND COUNT(*) FILTER (
+          WHERE agend_data_anterior IS NOT NULL
+            AND agend_data > agend_data_anterior
+        ) > 0
+    ),
+    retorno_previsto AS (
+      SELECT
+        rb.clientes_id,
+        rb.ultimo_agendamento,
+        rb.media_intervalo_dias,
+        (rb.ultimo_agendamento + rb.media_intervalo_dias) AS data_prevista
+      FROM retorno_base rb
+      WHERE rb.media_intervalo_dias IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM agendamentos_validos avf
+          WHERE avf.clientes_id = rb.clientes_id
+            AND avf.agend_inicio > (SELECT agora FROM periodo)
+        )
+    ),
+    clientes_retorno_previsto AS (
+      SELECT *
+      FROM retorno_previsto
+      WHERE data_prevista <= (SELECT fim_retorno FROM periodo)
+    ),
+    receita_recorrentes AS (
+      SELECT COALESCE(SUM(av.valor_total), 0)::numeric AS total
+      FROM agendamentos_validos av
+      JOIN clientes_recorrentes_mes crm ON crm.clientes_id = av.clientes_id
+      WHERE av.agend_data >= (SELECT inicio_mes FROM periodo)
+        AND av.agend_data < (SELECT fim_mes FROM periodo)
+    ),
+    totais_mes AS (
+      SELECT
+        COUNT(DISTINCT agend_id) AS agendamentos_mes,
+        COUNT(DISTINCT clientes_id) AS clientes_com_agendamento_mes,
+        COALESCE(SUM(valor_total), 0)::numeric AS receita_mes
+      FROM agendamentos_validos
+      WHERE agend_data >= (SELECT inicio_mes FROM periodo)
+        AND agend_data < (SELECT fim_mes FROM periodo)
+    )
+    SELECT
+      COUNT(DISTINCT cb.clientes_id) FILTER (
+        WHERE (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= (SELECT inicio_mes FROM periodo)
+          AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < (SELECT fim_mes FROM periodo)
+      ) AS clientes_novos_mes,
+      (SELECT COUNT(*) FROM clientes_recorrentes_mes) AS clientes_recorrentes_mes,
+      (SELECT COUNT(*) FROM clientes_ativos_30_dias) AS clientes_ativos_30_dias,
+      (SELECT COUNT(*) FROM clientes_inativos) AS clientes_inativos,
+      CASE
+        WHEN tm.clientes_com_agendamento_mes > 0
+          THEN ROUND(tm.receita_mes / tm.clientes_com_agendamento_mes, 2)
+        ELSE 0
+      END AS ticket_medio_cliente,
+      CASE
+        WHEN tm.clientes_com_agendamento_mes > 0
+          THEN ROUND(tm.agendamentos_mes::numeric / tm.clientes_com_agendamento_mes::numeric, 2)
+        ELSE 0
+      END AS agendamentos_medios_por_cliente,
+      rr.total AS receita_clientes_recorrentes,
+      (SELECT COUNT(*) FROM clientes_retorno_previsto) AS clientes_com_retorno_previsto
+    FROM clientes_base cb
+    CROSS JOIN totais_mes tm
+    CROSS JOIN receita_recorrentes rr
+    GROUP BY
+      tm.clientes_com_agendamento_mes,
+      tm.receita_mes,
+      tm.agendamentos_mes,
+      rr.total
+  `, scopedParams(empresaId, isSuperAdmin))
+
+  const row = result.rows[0] || {}
+
+  return {
+    cards: {
+      clientesNovosMes: toInt(row.clientes_novos_mes),
+      clientesRecorrentesMes: toInt(row.clientes_recorrentes_mes),
+      clientesAtivos30Dias: toInt(row.clientes_ativos_30_dias),
+      clientesInativos: toInt(row.clientes_inativos),
+      ticketMedioCliente: toNumber(row.ticket_medio_cliente),
+      agendamentosMediosPorCliente: toNumber(row.agendamentos_medios_por_cliente),
+      receitaClientesRecorrentes: toNumber(row.receita_clientes_recorrentes),
+      clientesComRetornoPrevisto: toInt(row.clientes_com_retorno_previsto),
+    },
+  }
+}
+
 async function getResumo(empresaId, isSuperAdmin) {
   const result = await pool.query(`
     ${baseCtes(isSuperAdmin)},
@@ -1625,6 +1854,10 @@ function montarTabelas(servicosResumo, resumo, outrasTabelas) {
 }
 
 export const dashboardModel = {
+  async getClientes({ empresaId, isSuperAdmin }) {
+    return getClientesCards(empresaId, isSuperAdmin)
+  },
+
   async getGestaoAgenda({ empresaId, isSuperAdmin }) {
     return getGestaoAgendaCards(empresaId, isSuperAdmin)
   },

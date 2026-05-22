@@ -53,6 +53,31 @@ export async function getGestaoAgenda(req, res) {
   }
 }
 
+// Buscar cards da aba Clientes
+export async function getClientes(req, res) {
+  try {
+    const empresaId = req.user.empresa_id
+    const nivelAcessoId = req.user.nivel_acesso_id
+    const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+
+    const data = await dashboardModel.getClientes({
+      empresaId,
+      isSuperAdmin,
+    })
+
+    res.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    console.error('Erro ao buscar clientes do dashboard:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar clientes do dashboard',
+    })
+  }
+}
+
 // Buscar estatísticas do dashboard
 export async function getDashboardStats(req, res) {
   try {
