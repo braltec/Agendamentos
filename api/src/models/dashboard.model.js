@@ -1399,6 +1399,7 @@ async function getClientesCards(empresaId, isSuperAdmin) {
     ),
     retencao_mensal AS (
       SELECT
+        mr.mes_inicio,
         mr.mes,
         mr.label,
         COUNT(DISTINCT capm.clientes_id) FILTER (WHERE capm.clientes_id IS NOT NULL) AS clientes_ativos,
@@ -1415,7 +1416,7 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       LEFT JOIN clientes_ativos_por_mes capm
         ON capm.mes_inicio = mr.mes_inicio
         AND capm.clientes_id IS NOT NULL
-      GROUP BY mr.mes, mr.label, mr.mes_inicio
+      GROUP BY mr.mes_inicio, mr.mes, mr.label
       ORDER BY mr.mes_inicio
     ),
     clientes_resumo_mes AS (
@@ -1600,7 +1601,7 @@ async function getClientesCards(empresaId, isSuperAdmin) {
               ELSE NULL
             END
           )
-          ORDER BY rm.mes
+          ORDER BY rm.mes_inicio
         )
         FROM retencao_mensal rm
       ), '[]'::json) AS retencao_mensal,
@@ -1866,55 +1867,53 @@ async function getResumo(empresaId, isSuperAdmin) {
 async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
   const result = await pool.query(`
     ${baseCtes(isSuperAdmin)},
-    status_flags AS (
-      SELECT EXISTS (
-        SELECT 1
-        FROM status_agend
-        WHERE LOWER(status_agend_nome) LIKE '%agend%'
-          OR LOWER(status_agend_nome) LIKE '%confirm%'
-          OR LOWER(status_agend_nome) LIKE '%avis%'
-      ) AS has_status_ativo_agenda
+    evolucao_agendamentos AS (
+      SELECT
+        a.agend_id,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS data_local,
+        a.agend_inicio,
+        a.agend_valor,
+        sc.cancelado
+      FROM agendamento a
+      JOIN periodo p ON true
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      WHERE (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
+        AND (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+        ${scopedAnd('a', isSuperAdmin)}
+    ),
+    receita_servicos_evolucao AS (
+      SELECT
+        ags.agend_id,
+        SUM(ags.valor_aplicado)::numeric AS valor_servicos
+      FROM agendamento_servico ags
+      JOIN evolucao_agendamentos ea ON ea.agend_id = ags.agend_id
+      GROUP BY ags.agend_id
     ),
     evolucao_base AS (
       SELECT
-        v.*,
-        (
-          NOT v.cancelado
-          AND (
-            LOWER(v.status_agend_nome) LIKE '%agend%'
-            OR LOWER(v.status_agend_nome) LIKE '%confirm%'
-            OR LOWER(v.status_agend_nome) LIKE '%avis%'
-            OR NOT (SELECT has_status_ativo_agenda FROM status_flags)
-          )
-        ) AS status_ativo_agenda,
-        (
-          NOT v.cancelado
-          AND (
-            LOWER(v.status_agend_nome) LIKE '%conclu%'
-            OR LOWER(v.status_agend_nome) LIKE '%realiz%'
-            OR LOWER(v.status_agend_nome) LIKE '%finaliz%'
-            OR LOWER(v.status_agend_nome) LIKE '%pago%'
-            OR LOWER(v.status_agend_nome) LIKE '%recebid%'
-          )
-        ) AS status_recebido
-      FROM valores_agendamento v
+        ea.agend_id,
+        ea.data_local,
+        ea.agend_inicio,
+        ea.cancelado,
+        COALESCE(NULLIF(ea.agend_valor, 0), rse.valor_servicos, 0)::numeric AS valor_total,
+        NOT ea.cancelado AND ea.agend_inicio < (SELECT agora FROM periodo) AS valor_recebido,
+        NOT ea.cancelado AND ea.agend_inicio >= (SELECT agora FROM periodo) AS valor_a_receber
+      FROM evolucao_agendamentos ea
+      LEFT JOIN receita_servicos_evolucao rse ON rse.agend_id = ea.agend_id
     )
     SELECT
       d.dia::date AS data,
       EXTRACT(DAY FROM d.dia)::int AS dia,
-      COALESCE(COUNT(DISTINCT v.agend_id) FILTER (WHERE v.status_ativo_agenda), 0) AS agendamentos,
+      COALESCE(COUNT(DISTINCT v.agend_id) FILTER (WHERE NOT v.cancelado), 0) AS agendamentos,
       COALESCE(COUNT(DISTINCT v.agend_id) FILTER (WHERE v.cancelado), 0) AS cancelamentos,
-      -- Valores recebidos dependem de status financeiro/de conclusão confiável.
-      -- Se não houver status como Concluído, Realizado, Finalizado ou Pago,
-      -- a métrica permanece zerada para não inventar recebimento.
-      COALESCE(SUM(v.valor_total) FILTER (WHERE v.status_recebido), 0) AS valor_recebido,
-      COALESCE(SUM(v.valor_total) FILTER (WHERE v.status_ativo_agenda), 0) AS valor_a_receber
+      COALESCE(SUM(v.valor_total) FILTER (WHERE v.valor_recebido), 0) AS valor_recebido,
+      COALESCE(SUM(v.valor_total) FILTER (WHERE v.valor_a_receber), 0) AS valor_a_receber
     FROM generate_series(
       (SELECT inicio_mes FROM periodo),
       (SELECT fim_mes FROM periodo) - INTERVAL '1 day',
       INTERVAL '1 day'
     ) d(dia)
-    LEFT JOIN evolucao_base v ON v.agend_data = d.dia::date
+    LEFT JOIN evolucao_base v ON v.data_local = d.dia::date
     GROUP BY d.dia
     ORDER BY d.dia
   `, scopedParams(empresaId, isSuperAdmin))

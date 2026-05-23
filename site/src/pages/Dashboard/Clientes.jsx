@@ -266,10 +266,18 @@ function RetencaoTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
 
   const data = payload[0].payload
+  const semBaseRetencao = data.taxaRetencao === null || data.taxaRetencao === undefined
 
   return (
     <TooltipContainer title={label}>
-      <TooltipRow label="Retenção" value={formatPercent(data.taxaRetencao)} />
+      <TooltipRow
+        label="Retenção"
+        value={
+          semBaseRetencao
+            ? 'Sem dados suficientes para calcular retenção'
+            : formatPercent(data.taxaRetencao)
+        }
+      />
       <TooltipRow label="Clientes ativos" value={formatNumber(data.clientesAtivos)} />
       <TooltipRow label="Clientes que retornaram" value={formatNumber(data.clientesRetornaram)} />
     </TooltipContainer>
@@ -328,14 +336,18 @@ export default function ClientesDashboard() {
     receita: Number(item.receita || 0),
     clientes: Number(item.clientes || 0),
   }))
-  const retencaoMensal = (graficos.retencaoMensal || []).map((item) => ({
-    ...item,
-    clientesAtivos: Number(item.clientesAtivos || 0),
-    clientesRetornaram: Number(item.clientesRetornaram || 0),
-    taxaRetencao: item.taxaRetencao === null || item.taxaRetencao === undefined
-      ? null
-      : Number(item.taxaRetencao),
-  }))
+  const retencaoMensal = (graficos.retencaoMensal || [])
+    .map((item) => ({
+      ...item,
+      clientesAtivos: Number(item.clientesAtivos || 0),
+      clientesRetornaram: Number(item.clientesRetornaram || 0),
+      taxaRetencao:
+        item.taxaRetencao === null || item.taxaRetencao === undefined
+          ? null
+          : Number(item.taxaRetencao),
+      tooltipAnchor: 0,
+    }))
+    .sort((a, b) => String(a.mes || '').localeCompare(String(b.mes || '')))
   const temNovosClientes = novosClientesPorMes.some((item) => item.clientesNovos > 0)
   const temNovosVsRecorrentes = novosVsRecorrentes.some(
     (item) => item.novos > 0 || item.recorrentes > 0,
@@ -582,12 +594,20 @@ export default function ClientesDashboard() {
                 <Tooltip content={<RetencaoTooltip />} />
                 <Line
                   type="monotone"
+                  dataKey="tooltipAnchor"
+                  stroke="transparent"
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
+                />
+                <Line
+                  type="monotone"
                   dataKey="taxaRetencao"
                   name="Retenção"
                   stroke={chartColors.blue}
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
-                  connectNulls={false}
+                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
