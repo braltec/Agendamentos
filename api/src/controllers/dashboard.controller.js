@@ -78,6 +78,56 @@ export async function getClientes(req, res) {
   }
 }
 
+// Buscar cards da aba Serviços
+export async function getServicos(req, res) {
+  try {
+    const empresaId = req.user.empresa_id
+    const nivelAcessoId = req.user.nivel_acesso_id
+    const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+
+    const data = await dashboardModel.getServicos({
+      empresaId,
+      isSuperAdmin,
+    })
+
+    res.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    console.error('Erro ao buscar serviços do dashboard:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar serviços do dashboard',
+    })
+  }
+}
+
+// Buscar cards da aba IA / Atendimento
+export async function getIAAtendimento(req, res) {
+  try {
+    const empresaId = req.user.empresa_id
+    const nivelAcessoId = req.user.nivel_acesso_id
+    const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+
+    const data = await dashboardModel.getIAAtendimento({
+      empresaId,
+      isSuperAdmin,
+    })
+
+    res.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    console.error('Erro ao buscar IA / Atendimento do dashboard:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar IA / Atendimento do dashboard',
+    })
+  }
+}
+
 // Buscar estatísticas do dashboard
 export async function getDashboardStats(req, res) {
   try {

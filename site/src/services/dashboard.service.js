@@ -19,6 +19,18 @@ export const dashboardService = {
     return response.data
   },
 
+  // Buscar cards da aba Serviços
+  async getServicos() {
+    const response = await api.get('/dashboard/servicos')
+    return response.data
+  },
+
+  // Buscar cards da aba IA / Atendimento
+  async getIAAtendimento() {
+    const response = await api.get('/dashboard/ia-atendimento')
+    return response.data
+  },
+
   // Buscar estatísticas do dashboard
   async getStats() {
     const response = await api.get('/dashboard/stats')

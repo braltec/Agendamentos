@@ -4,6 +4,7 @@ import {
   Activity,
   AlertCircle,
   BarChart3,
+  Bot,
   Briefcase,
   Building2,
   Calendar,
@@ -33,6 +34,8 @@ import dashboardService from '../services/dashboard.service'
 import { useAuth } from '../contexts/AuthContext'
 import AgendaDisponibilidade from './Dashboard/AgendaDisponibilidade'
 import ClientesDashboard from './Dashboard/Clientes'
+import ServicosDashboard from './Dashboard/Servicos'
+import IAAtendimento from './Dashboard/IAAtendimento'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -212,6 +215,8 @@ export default function Dashboard() {
     'visao-geral': 'Visão Geral',
     'agenda-disponibilidade': 'Agenda e Disponibilidade',
     clientes: 'Clientes',
+    servicos: 'Serviços',
+    'ia-atendimento': 'IA / Atendimento',
   }[activeTab] || 'Visão Geral'
 
   useEffect(() => {
@@ -327,10 +332,38 @@ export default function Dashboard() {
           <Users className="w-4 h-4" />
           Clientes
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('servicos')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'servicos'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" />
+          Serviços
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('ia-atendimento')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'ia-atendimento'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Bot className="w-4 h-4" />
+          IA / Atendimento
+        </button>
       </div>
 
       {activeTab === 'clientes' ? (
         <ClientesDashboard />
+      ) : activeTab === 'servicos' ? (
+        <ServicosDashboard />
+      ) : activeTab === 'ia-atendimento' ? (
+        <IAAtendimento />
       ) : activeTab === 'agenda-disponibilidade' ? (
         <AgendaDisponibilidade />
       ) : (

@@ -3,6 +3,8 @@ import {
   getVisaoGeral,
   getGestaoAgenda,
   getClientes,
+  getServicos,
+  getIAAtendimento,
   getDashboardStats,
   getProximosAgendamentos,
   getProfissionaisHoje,
@@ -24,6 +26,12 @@ router.get('/gestao-agenda', getGestaoAgenda)
 
 // Buscar cards da aba Clientes
 router.get('/clientes', getClientes)
+
+// Buscar cards da aba Serviços
+router.get('/servicos', getServicos)
+
+// Buscar cards da aba IA / Atendimento
+router.get('/ia-atendimento', getIAAtendimento)
 
 // Buscar estatísticas do dashboard
 router.get('/stats', getDashboardStats)

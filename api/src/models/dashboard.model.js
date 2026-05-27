@@ -2288,9 +2288,1224 @@ function montarTabelas(servicosResumo, resumo, outrasTabelas) {
   }
 }
 
+async function getServicosCards(empresaId, isSuperAdmin) {
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months')::date AS inicio_12_meses
+    ),
+    status_classificado AS (
+      SELECT
+        status_agend_id,
+        LOWER(status_agend_nome) LIKE '%cancel%' AS cancelado
+      FROM status_agend
+    ),
+    servicos_oferecidos AS (
+      SELECT
+        prof.empresa_id,
+        e.empresa_nome,
+        srv.servicos_id,
+        srv.servicos_nome,
+        srv.servicos_duracao,
+        srv.servicos_valor,
+        COUNT(DISTINCT prof.profissional_id) AS profissionais_vinculados
+      FROM servicos srv
+      JOIN profissional_servico ps ON ps.servicos_id = srv.servicos_id
+      JOIN profissional prof ON prof.profissional_id = ps.profissional_id
+      JOIN empresa e ON e.empresa_id = prof.empresa_id
+      WHERE LOWER(COALESCE(srv.status, 'ativo')) = 'ativo'
+        AND LOWER(COALESCE(prof.status, 'ativo')) = 'ativo'
+        ${scopedAnd('prof', isSuperAdmin)}
+      GROUP BY
+        prof.empresa_id,
+        e.empresa_nome,
+        srv.servicos_id,
+        srv.servicos_nome,
+        srv.servicos_duracao,
+        srv.servicos_valor
+    ),
+    agendamentos_periodo AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        e.empresa_nome,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS data_local,
+        a.agend_inicio,
+        a.agend_fim,
+        a.profissional_id AS agendamento_profissional_id,
+        sc.cancelado
+      FROM agendamento a
+      JOIN periodo p ON true
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      JOIN empresa e ON e.empresa_id = a.empresa_id
+      WHERE (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_12_meses
+        AND (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+        ${scopedAnd('a', isSuperAdmin)}
+    ),
+    itens_servico_periodo AS (
+      SELECT
+        a.agend_id,
+        a.empresa_id,
+        a.empresa_nome,
+        a.data_local,
+        COALESCE(ags.profissional_id, a.agendamento_profissional_id) AS profissional_id,
+        ags.servicos_id,
+        srv.servicos_nome,
+        a.cancelado,
+        COALESCE(ags.valor_aplicado, 0)::numeric AS valor_item,
+        GREATEST(COALESCE(EXTRACT(EPOCH FROM ags.duracao_aplicada) / 60.0, 0), 0)::numeric AS duracao_min
+      FROM agendamento_servico ags
+      JOIN agendamentos_periodo a ON a.agend_id = ags.agend_id
+      JOIN servicos srv ON srv.servicos_id = ags.servicos_id
+    ),
+    itens_servico_mes AS (
+      SELECT isp.*
+      FROM itens_servico_periodo isp
+      JOIN periodo p ON true
+      WHERE isp.data_local >= p.inicio_mes
+        AND isp.data_local < p.fim_mes
+    ),
+    resumo_servico_mes AS (
+      SELECT
+        ism.empresa_id,
+        ism.empresa_nome,
+        ism.servicos_id,
+        ism.servicos_nome,
+        COUNT(*) FILTER (WHERE NOT ism.cancelado) AS quantidade_nao_cancelada,
+        COUNT(*) FILTER (WHERE ism.cancelado) AS quantidade_cancelada,
+        COUNT(*) AS quantidade_total,
+        COUNT(DISTINCT ism.agend_id) FILTER (WHERE NOT ism.cancelado) AS agendamentos_nao_cancelados,
+        COUNT(DISTINCT ism.agend_id) FILTER (WHERE ism.cancelado) AS agendamentos_cancelados,
+        COUNT(DISTINCT ism.agend_id) AS agendamentos_total,
+        COALESCE(SUM(ism.valor_item) FILTER (WHERE NOT ism.cancelado), 0)::numeric AS receita,
+        COALESCE(SUM(ism.valor_item) FILTER (WHERE ism.cancelado), 0)::numeric AS valor_cancelado,
+        COALESCE(SUM(ism.duracao_min) FILTER (WHERE NOT ism.cancelado), 0)::numeric AS tempo_ocupado_min
+      FROM itens_servico_mes ism
+      GROUP BY ism.empresa_id, ism.empresa_nome, ism.servicos_id, ism.servicos_nome
+    ),
+    resumo_servico_mes_com_taxa AS (
+      SELECT
+        rsm.*,
+        CASE
+          WHEN rsm.quantidade_nao_cancelada > 0
+            THEN ROUND(rsm.receita / rsm.quantidade_nao_cancelada, 2)
+          ELSE 0
+        END AS ticket_medio,
+        CASE
+          WHEN rsm.quantidade_total > 0
+            THEN ROUND((rsm.quantidade_cancelada::numeric / rsm.quantidade_total::numeric) * 100, 1)
+          ELSE 0
+        END AS taxa_cancelamento
+      FROM resumo_servico_mes rsm
+    ),
+    resumo_geral AS (
+      SELECT
+        COALESCE(SUM(quantidade_nao_cancelada), 0) AS total_servicos_mes,
+        COALESCE(SUM(receita), 0)::numeric AS receita_servicos_mes,
+        COALESCE(SUM(tempo_ocupado_min), 0)::numeric AS tempo_total_ocupado_min,
+        CASE
+          WHEN COALESCE(SUM(quantidade_total), 0) > 0
+            THEN ROUND((COALESCE(SUM(quantidade_cancelada), 0)::numeric / SUM(quantidade_total)::numeric) * 100, 1)
+          ELSE 0
+        END AS taxa_cancelamento_servicos
+      FROM resumo_servico_mes
+    ),
+    servico_mais_vendido AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_nao_cancelada > 0
+      ORDER BY quantidade_nao_cancelada DESC, receita DESC, servicos_nome, empresa_nome
+      LIMIT 1
+    ),
+    servico_maior_receita AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE receita > 0
+      ORDER BY receita DESC, quantidade_nao_cancelada DESC, servicos_nome, empresa_nome
+      LIMIT 1
+    ),
+    servicos_mais_realizados AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_nao_cancelada > 0
+      ORDER BY quantidade_nao_cancelada DESC, receita DESC, servicos_nome, empresa_nome
+      LIMIT 10
+    ),
+    receita_por_servico AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE receita > 0
+      ORDER BY receita DESC, quantidade_nao_cancelada DESC, servicos_nome, empresa_nome
+      LIMIT 10
+    ),
+    cancelamentos_por_servico AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_cancelada > 0
+      ORDER BY quantidade_cancelada DESC, taxa_cancelamento DESC, servicos_nome, empresa_nome
+      LIMIT 10
+    ),
+    ocupacao_por_servico AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE tempo_ocupado_min > 0
+      ORDER BY tempo_ocupado_min DESC, quantidade_nao_cancelada DESC, servicos_nome, empresa_nome
+      LIMIT 10
+    ),
+    meses_periodo AS (
+      SELECT
+        g.mes_inicio::date AS mes_inicio,
+        (g.mes_inicio + INTERVAL '1 month')::date AS mes_fim,
+        to_char(g.mes_inicio, 'YYYY-MM') AS mes,
+        CASE EXTRACT(MONTH FROM g.mes_inicio)::int
+          WHEN 1 THEN 'Jan'
+          WHEN 2 THEN 'Fev'
+          WHEN 3 THEN 'Mar'
+          WHEN 4 THEN 'Abr'
+          WHEN 5 THEN 'Mai'
+          WHEN 6 THEN 'Jun'
+          WHEN 7 THEN 'Jul'
+          WHEN 8 THEN 'Ago'
+          WHEN 9 THEN 'Set'
+          WHEN 10 THEN 'Out'
+          WHEN 11 THEN 'Nov'
+          ELSE 'Dez'
+        END || '/' || EXTRACT(YEAR FROM g.mes_inicio)::int AS label
+      FROM generate_series(
+        (SELECT inicio_12_meses FROM periodo),
+        (SELECT inicio_mes FROM periodo),
+        INTERVAL '1 month'
+      ) AS g(mes_inicio)
+    ),
+    top_servicos_evolucao_base AS (
+      SELECT
+        isp.empresa_id,
+        isp.empresa_nome,
+        isp.servicos_id,
+        isp.servicos_nome,
+        COUNT(*) FILTER (WHERE NOT isp.cancelado) AS quantidade,
+        COALESCE(SUM(isp.valor_item) FILTER (WHERE NOT isp.cancelado), 0)::numeric AS receita
+      FROM itens_servico_periodo isp
+      GROUP BY isp.empresa_id, isp.empresa_nome, isp.servicos_id, isp.servicos_nome
+      HAVING COUNT(*) FILTER (WHERE NOT isp.cancelado) > 0
+      ORDER BY quantidade DESC, receita DESC, isp.servicos_nome, isp.empresa_nome
+      LIMIT 5
+    ),
+    top_servicos_evolucao AS (
+      SELECT
+        tseb.*,
+        ROW_NUMBER() OVER (ORDER BY tseb.quantidade DESC, tseb.receita DESC, tseb.servicos_nome, tseb.empresa_nome) AS ordem,
+        'servico' || ROW_NUMBER() OVER (ORDER BY tseb.quantidade DESC, tseb.receita DESC, tseb.servicos_nome, tseb.empresa_nome) AS data_key
+      FROM top_servicos_evolucao_base tseb
+    ),
+    evolucao_mensal_servicos AS (
+      SELECT
+        mp.mes_inicio,
+        mp.mes,
+        mp.label,
+        tse.empresa_id,
+        tse.empresa_nome,
+        tse.servicos_id,
+        tse.servicos_nome,
+        tse.data_key,
+        tse.ordem,
+        COALESCE(COUNT(isp.agend_id) FILTER (WHERE NOT isp.cancelado), 0) AS quantidade
+      FROM meses_periodo mp
+      CROSS JOIN top_servicos_evolucao tse
+      LEFT JOIN itens_servico_periodo isp
+        ON isp.servicos_id = tse.servicos_id
+        AND isp.empresa_id = tse.empresa_id
+        AND isp.data_local >= mp.mes_inicio
+        AND isp.data_local < mp.mes_fim
+        AND NOT isp.cancelado
+      GROUP BY
+        mp.mes_inicio,
+        mp.mes,
+        mp.label,
+        tse.empresa_id,
+        tse.empresa_nome,
+        tse.servicos_id,
+        tse.servicos_nome,
+        tse.data_key,
+        tse.ordem
+    ),
+    ultimo_agendamento_servico AS (
+      SELECT
+        a.empresa_id,
+        ags.servicos_id,
+        MAX((a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date) FILTER (WHERE NOT sc.cancelado) AS ultimo_agendamento
+      FROM agendamento a
+      JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
+      JOIN agendamento_servico ags ON ags.agend_id = a.agend_id
+      WHERE 1 = 1
+        ${scopedAnd('a', isSuperAdmin)}
+      GROUP BY a.empresa_id, ags.servicos_id
+    ),
+    ranking_receita AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_nao_cancelada > 0
+      ORDER BY receita DESC, quantidade_nao_cancelada DESC, servicos_nome, empresa_nome
+      LIMIT 20
+    ),
+    ranking_quantidade AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_nao_cancelada > 0
+      ORDER BY quantidade_nao_cancelada DESC, receita DESC, servicos_nome, empresa_nome
+      LIMIT 20
+    ),
+    maior_cancelamento AS (
+      SELECT *
+      FROM resumo_servico_mes_com_taxa
+      WHERE quantidade_total > 0
+        AND quantidade_cancelada > 0
+      ORDER BY taxa_cancelamento DESC, quantidade_cancelada DESC, servicos_nome, empresa_nome
+      LIMIT 20
+    ),
+    servicos_sem_agendamento_detalhado AS (
+      SELECT
+        so.empresa_id,
+        so.empresa_nome,
+        so.servicos_id,
+        so.servicos_nome,
+        so.servicos_valor,
+        GREATEST(COALESCE(EXTRACT(EPOCH FROM so.servicos_duracao) / 60.0, 0), 0)::numeric AS duracao_min,
+        so.profissionais_vinculados,
+        uas.ultimo_agendamento,
+        COALESCE(rsm.quantidade_cancelada, 0) AS cancelamentos_no_mes
+      FROM servicos_oferecidos so
+      LEFT JOIN resumo_servico_mes_com_taxa rsm
+        ON rsm.empresa_id = so.empresa_id
+        AND rsm.servicos_id = so.servicos_id
+      LEFT JOIN ultimo_agendamento_servico uas
+        ON uas.empresa_id = so.empresa_id
+        AND uas.servicos_id = so.servicos_id
+      WHERE COALESCE(rsm.quantidade_nao_cancelada, 0) = 0
+      ORDER BY uas.ultimo_agendamento ASC NULLS FIRST, so.servicos_nome, so.empresa_nome
+      LIMIT 20
+    ),
+    servicos_por_profissional AS (
+      SELECT
+        ism.empresa_id,
+        ism.empresa_nome,
+        prof.profissional_id,
+        prof.profissional_nome,
+        ism.servicos_id,
+        ism.servicos_nome,
+        COUNT(*) FILTER (WHERE NOT ism.cancelado) AS quantidade,
+        COALESCE(SUM(ism.valor_item) FILTER (WHERE NOT ism.cancelado), 0)::numeric AS receita_total,
+        COALESCE(SUM(ism.duracao_min) FILTER (WHERE NOT ism.cancelado), 0)::numeric AS tempo_total_min,
+        COUNT(*) FILTER (WHERE ism.cancelado) AS cancelamentos,
+        COUNT(*) AS total_agendamentos,
+        CASE
+          WHEN COUNT(*) FILTER (WHERE NOT ism.cancelado) > 0
+            THEN ROUND(COALESCE(SUM(ism.valor_item) FILTER (WHERE NOT ism.cancelado), 0)::numeric / COUNT(*) FILTER (WHERE NOT ism.cancelado), 2)
+          ELSE 0
+        END AS ticket_medio,
+        CASE
+          WHEN COUNT(*) > 0
+            THEN ROUND(((COUNT(*) FILTER (WHERE ism.cancelado))::numeric / COUNT(*)::numeric) * 100, 1)
+          ELSE 0
+        END AS taxa_cancelamento
+      FROM itens_servico_mes ism
+      LEFT JOIN profissional prof ON prof.profissional_id = ism.profissional_id
+      GROUP BY
+        ism.empresa_id,
+        ism.empresa_nome,
+        prof.profissional_id,
+        prof.profissional_nome,
+        ism.servicos_id,
+        ism.servicos_nome
+      HAVING COUNT(*) FILTER (WHERE NOT ism.cancelado) > 0
+        OR COUNT(*) FILTER (WHERE ism.cancelado) > 0
+      ORDER BY prof.profissional_nome NULLS LAST, quantidade DESC, receita_total DESC, ism.servicos_nome
+      LIMIT 30
+    ),
+    servicos_sem_movimento AS (
+      SELECT COUNT(*) AS total
+      FROM servicos_oferecidos so
+      LEFT JOIN resumo_servico_mes_com_taxa rsm
+        ON rsm.empresa_id = so.empresa_id
+        AND rsm.servicos_id = so.servicos_id
+      WHERE COALESCE(rsm.quantidade_nao_cancelada, 0) = 0
+    )
+    SELECT
+      (SELECT inicio_mes FROM periodo) AS inicio_mes,
+      (SELECT fim_mes FROM periodo) AS fim_mes,
+      '${TIMEZONE}' AS timezone,
+      rg.total_servicos_mes,
+      rg.receita_servicos_mes,
+      CASE
+        WHEN rg.total_servicos_mes > 0
+          THEN ROUND(rg.receita_servicos_mes / rg.total_servicos_mes, 2)
+        ELSE 0
+      END AS ticket_medio_servico,
+      rg.tempo_total_ocupado_min,
+      rg.taxa_cancelamento_servicos,
+      ssm.total AS servicos_sem_movimento,
+      (
+        SELECT json_build_object(
+          'servicosId', smv.servicos_id,
+          'servicosNome', smv.servicos_nome,
+          'quantidade', smv.quantidade_nao_cancelada,
+          'receita', smv.receita
+        )
+        FROM servico_mais_vendido smv
+      ) AS servico_mais_vendido,
+      (
+        SELECT json_build_object(
+          'servicosId', smr.servicos_id,
+          'servicosNome', smr.servicos_nome,
+          'quantidade', smr.quantidade_nao_cancelada,
+          'receita', smr.receita
+        )
+        FROM servico_maior_receita smr
+      ) AS servico_maior_receita,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', smr.servicos_id,
+            'servicoNome', smr.servicos_nome,
+            'quantidade', smr.quantidade_nao_cancelada,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN smr.empresa_nome ELSE NULL END
+          )
+          ORDER BY smr.quantidade_nao_cancelada DESC, smr.receita DESC, smr.servicos_nome
+        )
+        FROM servicos_mais_realizados smr
+      ), '[]'::json) AS servicos_mais_realizados,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', rps.servicos_id,
+            'servicoNome', rps.servicos_nome,
+            'receita', rps.receita,
+            'quantidade', rps.quantidade_nao_cancelada,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN rps.empresa_nome ELSE NULL END
+          )
+          ORDER BY rps.receita DESC, rps.quantidade_nao_cancelada DESC, rps.servicos_nome
+        )
+        FROM receita_por_servico rps
+      ), '[]'::json) AS receita_por_servico,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', cps.servicos_id,
+            'servicoNome', cps.servicos_nome,
+            'cancelamentos', cps.quantidade_cancelada,
+            'totalAgendamentos', cps.quantidade_total,
+            'taxaCancelamento', cps.taxa_cancelamento,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN cps.empresa_nome ELSE NULL END
+          )
+          ORDER BY cps.quantidade_cancelada DESC, cps.quantidade_total DESC, cps.servicos_nome
+        )
+        FROM cancelamentos_por_servico cps
+      ), '[]'::json) AS cancelamentos_por_servico,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', ops.servicos_id,
+            'servicoNome', ops.servicos_nome,
+            'tempoOcupadoMin', ops.tempo_ocupado_min,
+            'quantidade', ops.quantidade_nao_cancelada,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ops.empresa_nome ELSE NULL END
+          )
+          ORDER BY ops.tempo_ocupado_min DESC, ops.quantidade_nao_cancelada DESC, ops.servicos_nome
+        )
+        FROM ocupacao_por_servico ops
+      ), '[]'::json) AS ocupacao_por_servico,
+      json_build_object(
+        'series',
+        COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'servicoId', tse.servicos_id,
+              'servicoNome', tse.servicos_nome,
+              'dataKey', tse.data_key,
+              'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN tse.empresa_nome ELSE NULL END
+            )
+            ORDER BY tse.ordem
+          )
+          FROM top_servicos_evolucao tse
+        ), '[]'::json),
+        'dados',
+        COALESCE((
+          SELECT json_agg(
+            json_build_object(
+              'mes', ems.mes,
+              'label', ems.label,
+              'servicoId', ems.servicos_id,
+              'servicoNome', ems.servicos_nome,
+              'dataKey', ems.data_key,
+              'quantidade', ems.quantidade,
+              'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ems.empresa_nome ELSE NULL END
+            )
+            ORDER BY ems.mes_inicio, ems.ordem
+          )
+          FROM evolucao_mensal_servicos ems
+        ), '[]'::json)
+      ) AS evolucao_mensal_servicos,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', rr.servicos_id,
+            'servicoNome', rr.servicos_nome,
+            'receitaTotal', rr.receita,
+            'quantidade', rr.quantidade_nao_cancelada,
+            'ticketMedio', rr.ticket_medio,
+            'tempoTotalMin', rr.tempo_ocupado_min,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN rr.empresa_nome ELSE NULL END
+          )
+          ORDER BY rr.receita DESC, rr.quantidade_nao_cancelada DESC, rr.servicos_nome, rr.empresa_nome
+        )
+        FROM ranking_receita rr
+      ), '[]'::json) AS ranking_receita,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', rq.servicos_id,
+            'servicoNome', rq.servicos_nome,
+            'quantidade', rq.quantidade_nao_cancelada,
+            'receitaTotal', rq.receita,
+            'ticketMedio', rq.ticket_medio,
+            'taxaCancelamento', rq.taxa_cancelamento,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN rq.empresa_nome ELSE NULL END
+          )
+          ORDER BY rq.quantidade_nao_cancelada DESC, rq.receita DESC, rq.servicos_nome, rq.empresa_nome
+        )
+        FROM ranking_quantidade rq
+      ), '[]'::json) AS ranking_quantidade,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', mc.servicos_id,
+            'servicoNome', mc.servicos_nome,
+            'totalAgendamentos', mc.quantidade_total,
+            'cancelamentos', mc.quantidade_cancelada,
+            'taxaCancelamento', mc.taxa_cancelamento,
+            'valorCancelado', mc.valor_cancelado,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN mc.empresa_nome ELSE NULL END
+          )
+          ORDER BY mc.taxa_cancelamento DESC, mc.quantidade_cancelada DESC, mc.servicos_nome, mc.empresa_nome
+        )
+        FROM maior_cancelamento mc
+      ), '[]'::json) AS maior_cancelamento,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'servicoId', ssa.servicos_id,
+            'servicoNome', ssa.servicos_nome,
+            'valorPadrao', ssa.servicos_valor,
+            'duracaoMin', ssa.duracao_min,
+            'profissionaisVinculados', ssa.profissionais_vinculados,
+            'ultimoAgendamento', ssa.ultimo_agendamento,
+            'cancelamentosNoMes', ssa.cancelamentos_no_mes,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ssa.empresa_nome ELSE NULL END
+          )
+          ORDER BY ssa.ultimo_agendamento ASC NULLS FIRST, ssa.servicos_nome, ssa.empresa_nome
+        )
+        FROM servicos_sem_agendamento_detalhado ssa
+      ), '[]'::json) AS servicos_sem_agendamento,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'profissionalId', spp.profissional_id,
+            'profissionalNome', COALESCE(spp.profissional_nome, 'Profissional não informado'),
+            'servicoId', spp.servicos_id,
+            'servicoNome', spp.servicos_nome,
+            'quantidade', spp.quantidade,
+            'receitaTotal', spp.receita_total,
+            'ticketMedio', spp.ticket_medio,
+            'tempoTotalMin', spp.tempo_total_min,
+            'taxaCancelamento', spp.taxa_cancelamento,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN spp.empresa_nome ELSE NULL END
+          )
+          ORDER BY spp.profissional_nome NULLS LAST, spp.quantidade DESC, spp.receita_total DESC, spp.servicos_nome
+        )
+        FROM servicos_por_profissional spp
+      ), '[]'::json) AS servicos_por_profissional
+    FROM resumo_geral rg
+    CROSS JOIN servicos_sem_movimento ssm
+  `, scopedParams(empresaId, isSuperAdmin))
+
+  const row = result.rows[0] || {}
+
+  return {
+    periodo: {
+      inicioMes: toDateString(row.inicio_mes),
+      fimMes: toDateString(row.fim_mes),
+      timezone: row.timezone || TIMEZONE,
+    },
+    cards: {
+      totalServicosMes: toInt(row.total_servicos_mes),
+      receitaServicosMes: toNumber(row.receita_servicos_mes),
+      servicoMaisVendido: row.servico_mais_vendido || null,
+      servicoMaiorReceita: row.servico_maior_receita || null,
+      ticketMedioServico: toNumber(row.ticket_medio_servico),
+      tempoTotalOcupadoMin: toNumber(row.tempo_total_ocupado_min),
+      taxaCancelamentoServicos: toNumber(row.taxa_cancelamento_servicos),
+      servicosSemMovimento: toInt(row.servicos_sem_movimento),
+    },
+    graficos: {
+      servicosMaisRealizados: row.servicos_mais_realizados || [],
+      receitaPorServico: row.receita_por_servico || [],
+      cancelamentosPorServico: row.cancelamentos_por_servico || [],
+      ocupacaoPorServico: row.ocupacao_por_servico || [],
+      evolucaoMensalServicos: row.evolucao_mensal_servicos || { series: [], dados: [] },
+    },
+    tabelas: {
+      rankingReceita: row.ranking_receita || [],
+      rankingQuantidade: row.ranking_quantidade || [],
+      maiorCancelamento: row.maior_cancelamento || [],
+      servicosSemAgendamento: row.servicos_sem_agendamento || [],
+      servicosPorProfissional: row.servicos_por_profissional || [],
+    },
+  }
+}
+
+async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
+  const conversaScope = isSuperAdmin ? '' : 'AND c.empresa_id = $1'
+  const eventoScope = isSuperAdmin ? '' : 'AND COALESCE(e.empresa_id, c.empresa_id) = $1'
+  const mensagemScope = isSuperAdmin ? '' : 'AND COALESCE(m.empresa_id, c.empresa_id) = $1'
+
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes
+    ),
+    dias_mes AS (
+      SELECT
+        g.dia::date AS data,
+        to_char(g.dia, 'DD/MM') AS label
+      FROM generate_series(
+        (SELECT inicio_mes FROM periodo),
+        (SELECT fim_mes FROM periodo) - INTERVAL '1 day',
+        INTERVAL '1 day'
+      ) AS g(dia)
+    ),
+    conversas_periodo AS (
+      SELECT
+        c.conversa_id,
+        c.empresa_id,
+        c.session_id,
+        CASE
+          WHEN BTRIM(LOWER(COALESCE(c.telefone, ''))) IN ('', 'null') THEN NULL
+          ELSE c.telefone
+        END AS telefone,
+        c.canal,
+        c.status,
+        c.resultado,
+        c.primeira_mensagem_at,
+        c.ultima_mensagem_at,
+        c.primeira_resposta_at,
+        c.concluida_at,
+        COALESCE(c.qtd_msg_cliente, 0) AS qtd_msg_cliente,
+        COALESCE(c.qtd_msg_agente, 0) AS qtd_msg_agente,
+        c.created_at,
+        (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date AS data_referencia
+      FROM agente_conversa c
+      JOIN periodo p ON true
+      WHERE (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
+        AND (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+        ${conversaScope}
+    ),
+    eventos_periodo AS (
+      SELECT
+        e.evento_id,
+        e.conversa_id,
+        e.tipo_evento,
+        e.action,
+        e.intent,
+        e.erro_tipo,
+        e.created_at,
+        (e.created_at AT TIME ZONE '${TIMEZONE}')::date AS data_evento
+      FROM agente_evento_log e
+      LEFT JOIN agente_conversa c ON c.conversa_id = e.conversa_id
+      JOIN periodo p ON true
+      WHERE (e.created_at AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
+        AND (e.created_at AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+        ${eventoScope}
+    ),
+    mensagens_periodo AS (
+      SELECT
+        m.mensagem_id,
+        m.conversa_id,
+        m.origem,
+        m.tipo_mensagem,
+        m.created_at,
+        (m.created_at AT TIME ZONE '${TIMEZONE}')::date AS data_mensagem
+      FROM agente_mensagem m
+      LEFT JOIN agente_conversa c ON c.conversa_id = m.conversa_id
+      JOIN periodo p ON true
+      WHERE (m.created_at AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
+        AND (m.created_at AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+        ${mensagemScope}
+    ),
+    resumo_conversas AS (
+      SELECT
+        COUNT(*)::int AS conversas_iniciadas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(status, '')) = 'concluida'
+            OR concluida_at IS NOT NULL
+        )::int AS conversas_concluidas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(status, '')) = 'abandonada'
+        )::int AS conversas_abandonadas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(resultado, '')) = 'agendamento'
+        )::int AS conversas_agendamento,
+        COALESCE(SUM(qtd_msg_cliente), 0)::int AS total_msg_cliente,
+        COALESCE(SUM(qtd_msg_agente), 0)::int AS total_msg_agente,
+        COALESCE(
+          AVG(
+            EXTRACT(EPOCH FROM (primeira_resposta_at - COALESCE(primeira_mensagem_at, created_at)))
+          ) FILTER (
+            WHERE primeira_resposta_at IS NOT NULL
+              AND COALESCE(primeira_mensagem_at, created_at) IS NOT NULL
+          ),
+          0
+        )::numeric AS tempo_medio_primeira_resposta_seg,
+        COALESCE(
+          AVG(
+            EXTRACT(EPOCH FROM (concluida_at - COALESCE(primeira_mensagem_at, created_at)))
+          ) FILTER (
+            WHERE concluida_at IS NOT NULL
+              AND COALESCE(primeira_mensagem_at, created_at) IS NOT NULL
+          ),
+          0
+        )::numeric AS tempo_medio_conclusao_seg
+      FROM conversas_periodo
+    ),
+    resumo_eventos AS (
+      SELECT
+        COUNT(*) FILTER (WHERE action IS NOT NULL)::int AS total_actions,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(action, '')) = 'ask_missing_info')::int AS ask_missing_info,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(tipo_evento, '')) = 'erro')::int AS erros_registrados
+      FROM eventos_periodo
+    ),
+    evolucao_diaria_conversas AS (
+      SELECT
+        dm.data,
+        dm.label,
+        COUNT(cp.conversa_id)::int AS iniciadas,
+        COUNT(cp.conversa_id) FILTER (
+          WHERE LOWER(COALESCE(cp.status, '')) = 'concluida'
+            OR cp.concluida_at IS NOT NULL
+        )::int AS concluidas,
+        COUNT(cp.conversa_id) FILTER (
+          WHERE LOWER(COALESCE(cp.status, '')) = 'abandonada'
+        )::int AS abandonadas,
+        COUNT(cp.conversa_id) FILTER (
+          WHERE LOWER(COALESCE(cp.resultado, '')) = 'agendamento'
+        )::int AS agendamentos
+      FROM dias_mes dm
+      LEFT JOIN conversas_periodo cp ON cp.data_referencia = dm.data
+      GROUP BY dm.data, dm.label
+    ),
+    funil_atendimento AS (
+      SELECT 1 AS ordem, 'Conversas iniciadas' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM conversas_periodo
+      UNION ALL
+      SELECT 2 AS ordem, 'Intenção detectada' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM eventos_periodo
+      WHERE LOWER(COALESCE(tipo_evento, '')) = 'intent_detectada'
+        AND conversa_id IS NOT NULL
+      UNION ALL
+      SELECT 3 AS ordem, 'Ação executada' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM eventos_periodo
+      WHERE action IS NOT NULL
+        AND conversa_id IS NOT NULL
+      UNION ALL
+      SELECT 4 AS ordem, 'Resposta enviada' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM mensagens_periodo
+      WHERE LOWER(COALESCE(origem, '')) = 'agente'
+        AND conversa_id IS NOT NULL
+      UNION ALL
+      SELECT 5 AS ordem, 'Conversas concluídas' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM conversas_periodo
+      WHERE LOWER(COALESCE(status, '')) = 'concluida'
+        OR concluida_at IS NOT NULL
+      UNION ALL
+      SELECT 6 AS ordem, 'Agendamentos criados' AS etapa, COUNT(DISTINCT conversa_id)::int AS quantidade
+      FROM conversas_periodo
+      WHERE LOWER(COALESCE(resultado, '')) = 'agendamento'
+    ),
+    intencoes_mais_detectadas AS (
+      SELECT
+        intent,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM eventos_periodo
+      WHERE LOWER(COALESCE(tipo_evento, '')) = 'intent_detectada'
+        AND intent IS NOT NULL
+        AND BTRIM(intent) <> ''
+      GROUP BY intent
+      ORDER BY quantidade DESC, intent
+      LIMIT 10
+    ),
+    acoes_mais_executadas AS (
+      SELECT
+        action,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM eventos_periodo
+      WHERE action IS NOT NULL
+        AND BTRIM(action) <> ''
+      GROUP BY action
+      ORDER BY quantidade DESC, action
+      LIMIT 10
+    ),
+    distribuicao_resultados AS (
+      SELECT
+        COALESCE(NULLIF(BTRIM(resultado), ''), 'Sem resultado') AS resultado,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM conversas_periodo
+      GROUP BY COALESCE(NULLIF(BTRIM(resultado), ''), 'Sem resultado')
+      ORDER BY quantidade DESC, resultado
+    ),
+    distribuicao_tipo_mensagem AS (
+      SELECT
+        COALESCE(NULLIF(BTRIM(tipo_mensagem), ''), 'Não informado') AS tipo_mensagem,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM mensagens_periodo
+      WHERE LOWER(COALESCE(origem, '')) = 'cliente'
+      GROUP BY COALESCE(NULLIF(BTRIM(tipo_mensagem), ''), 'Não informado')
+      ORDER BY quantidade DESC, tipo_mensagem
+    ),
+    taxa_ask_missing_info_por_dia AS (
+      SELECT
+        dm.data,
+        dm.label,
+        COUNT(ep.evento_id) FILTER (WHERE ep.action IS NOT NULL)::int AS total_actions,
+        COUNT(ep.evento_id) FILTER (WHERE LOWER(COALESCE(ep.action, '')) = 'ask_missing_info')::int AS ask_missing_info,
+        COALESCE(
+          ROUND(
+            (
+              COUNT(ep.evento_id) FILTER (WHERE LOWER(COALESCE(ep.action, '')) = 'ask_missing_info')
+            )::numeric
+            / NULLIF(COUNT(ep.evento_id) FILTER (WHERE ep.action IS NOT NULL), 0)
+            * 100,
+            1
+          ),
+          0
+        ) AS taxa
+      FROM dias_mes dm
+      LEFT JOIN eventos_periodo ep ON ep.data_evento = dm.data
+      GROUP BY dm.data, dm.label
+    ),
+    erros_por_tipo AS (
+      SELECT
+        COALESCE(NULLIF(BTRIM(erro_tipo), ''), 'não_classificado') AS erro_tipo,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM eventos_periodo
+      WHERE LOWER(COALESCE(tipo_evento, '')) = 'erro'
+      GROUP BY COALESCE(NULLIF(BTRIM(erro_tipo), ''), 'não_classificado')
+      ORDER BY quantidade DESC, erro_tipo
+    ),
+    conversas_recentes AS (
+      SELECT
+        cp.conversa_id,
+        cp.primeira_mensagem_at,
+        cp.ultima_mensagem_at,
+        e.empresa_nome,
+        cp.telefone,
+        cp.canal,
+        cp.status,
+        cp.resultado,
+        cp.qtd_msg_cliente,
+        cp.qtd_msg_agente,
+        CASE
+          WHEN cp.primeira_resposta_at IS NOT NULL
+            AND COALESCE(cp.primeira_mensagem_at, cp.created_at) IS NOT NULL
+            THEN GREATEST(EXTRACT(EPOCH FROM (cp.primeira_resposta_at - COALESCE(cp.primeira_mensagem_at, cp.created_at))), 0)
+          ELSE NULL
+        END AS tempo_primeira_resposta_seg,
+        CASE
+          WHEN cp.concluida_at IS NOT NULL
+            AND COALESCE(cp.primeira_mensagem_at, cp.created_at) IS NOT NULL
+            THEN GREATEST(EXTRACT(EPOCH FROM (cp.concluida_at - COALESCE(cp.primeira_mensagem_at, cp.created_at))), 0)
+          ELSE NULL
+        END AS tempo_conclusao_seg
+      FROM conversas_periodo cp
+      LEFT JOIN empresa e ON e.empresa_id = cp.empresa_id
+      ORDER BY COALESCE(cp.ultima_mensagem_at, cp.primeira_mensagem_at, cp.created_at) DESC NULLS LAST
+      LIMIT 20
+    ),
+    conversas_abandonadas_detalhadas AS (
+      SELECT
+        cp.conversa_id,
+        cp.primeira_mensagem_at,
+        cp.ultima_mensagem_at,
+        e.empresa_nome,
+        cp.telefone,
+        cp.canal,
+        cp.status,
+        cp.resultado,
+        cp.qtd_msg_cliente,
+        cp.qtd_msg_agente,
+        CASE
+          WHEN cp.ultima_mensagem_at IS NOT NULL
+            THEN GREATEST(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - cp.ultima_mensagem_at)), 0)
+          ELSE NULL
+        END AS tempo_desde_ultima_mensagem_seg
+      FROM conversas_periodo cp
+      LEFT JOIN empresa e ON e.empresa_id = cp.empresa_id
+      WHERE LOWER(COALESCE(cp.status, '')) = 'abandonada'
+      ORDER BY cp.ultima_mensagem_at DESC NULLS LAST
+      LIMIT 20
+    ),
+    conversas_com_erro AS (
+      SELECT
+        ep.evento_id,
+        ep.conversa_id,
+        ep.created_at,
+        e.empresa_nome,
+        cp.telefone,
+        cp.session_id,
+        COALESCE(NULLIF(BTRIM(ep.erro_tipo), ''), 'não_classificado') AS erro_tipo,
+        ep.intent,
+        ep.action,
+        cp.status AS status_conversa,
+        cp.resultado
+      FROM eventos_periodo ep
+      LEFT JOIN conversas_periodo cp ON cp.conversa_id = ep.conversa_id
+      LEFT JOIN empresa e ON e.empresa_id = cp.empresa_id
+      WHERE LOWER(COALESCE(ep.tipo_evento, '')) = 'erro'
+      ORDER BY ep.created_at DESC NULLS LAST
+      LIMIT 20
+    ),
+    principais_intents_actions AS (
+      SELECT
+        COALESCE(NULLIF(BTRIM(intent), ''), 'Sem intent') AS intent,
+        COALESCE(NULLIF(BTRIM(action), ''), 'Sem action') AS action,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM eventos_periodo
+      WHERE (
+        intent IS NOT NULL
+        AND BTRIM(intent) <> ''
+      ) OR (
+        action IS NOT NULL
+        AND BTRIM(action) <> ''
+      )
+      GROUP BY
+        COALESCE(NULLIF(BTRIM(intent), ''), 'Sem intent'),
+        COALESCE(NULLIF(BTRIM(action), ''), 'Sem action')
+      ORDER BY quantidade DESC, intent, action
+      LIMIT 20
+    ),
+    empresas_maior_volume AS (
+      SELECT
+        cp.empresa_id,
+        e.empresa_nome,
+        COUNT(*)::int AS conversas_iniciadas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(cp.status, '')) = 'concluida'
+            OR cp.concluida_at IS NOT NULL
+        )::int AS conversas_concluidas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(cp.status, '')) = 'abandonada'
+        )::int AS conversas_abandonadas,
+        COUNT(*) FILTER (
+          WHERE LOWER(COALESCE(cp.resultado, '')) = 'agendamento'
+        )::int AS conversas_agendamento,
+        COALESCE(SUM(cp.qtd_msg_cliente + cp.qtd_msg_agente), 0)::int AS mensagens_totais,
+        COALESCE(
+          AVG(
+            EXTRACT(EPOCH FROM (cp.primeira_resposta_at - COALESCE(cp.primeira_mensagem_at, cp.created_at)))
+          ) FILTER (
+            WHERE cp.primeira_resposta_at IS NOT NULL
+              AND COALESCE(cp.primeira_mensagem_at, cp.created_at) IS NOT NULL
+          ),
+          0
+        )::numeric AS tempo_medio_primeira_resposta_seg,
+        COALESCE(
+          AVG(
+            EXTRACT(EPOCH FROM (cp.concluida_at - COALESCE(cp.primeira_mensagem_at, cp.created_at)))
+          ) FILTER (
+            WHERE cp.concluida_at IS NOT NULL
+              AND COALESCE(cp.primeira_mensagem_at, cp.created_at) IS NOT NULL
+          ),
+          0
+        )::numeric AS tempo_medio_conclusao_seg,
+        COALESCE(
+          (COUNT(*) FILTER (WHERE LOWER(COALESCE(cp.resultado, '')) = 'agendamento'))::numeric
+          / NULLIF(COUNT(*), 0)
+          * 100,
+          0
+        ) AS taxa_conversao
+      FROM conversas_periodo cp
+      JOIN empresa e ON e.empresa_id = cp.empresa_id
+      WHERE ${isSuperAdmin ? 'true' : 'false'}
+      GROUP BY cp.empresa_id, e.empresa_nome
+      ORDER BY conversas_iniciadas DESC, e.empresa_nome
+      LIMIT 20
+    )
+    SELECT
+      p.inicio_mes,
+      p.fim_mes,
+      rc.conversas_iniciadas,
+      rc.conversas_concluidas,
+      rc.conversas_abandonadas,
+      rc.conversas_agendamento,
+      COALESCE(
+        (rc.conversas_agendamento::numeric / NULLIF(rc.conversas_iniciadas, 0)) * 100,
+        0
+      ) AS taxa_conversao,
+      COALESCE(
+        ((rc.total_msg_cliente + rc.total_msg_agente)::numeric / NULLIF(rc.conversas_iniciadas, 0)),
+        0
+      ) AS media_mensagens_por_conversa,
+      rc.tempo_medio_primeira_resposta_seg,
+      rc.tempo_medio_conclusao_seg,
+      COALESCE(
+        (re.ask_missing_info::numeric / NULLIF(re.total_actions, 0)) * 100,
+        0
+      ) AS taxa_ask_missing_info,
+      re.erros_registrados,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'data', edc.data,
+            'label', edc.label,
+            'iniciadas', edc.iniciadas,
+            'concluidas', edc.concluidas,
+            'abandonadas', edc.abandonadas,
+            'agendamentos', edc.agendamentos
+          )
+          ORDER BY edc.data
+        )
+        FROM evolucao_diaria_conversas edc
+      ), '[]'::json) AS evolucao_diaria_conversas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'etapa', fa.etapa,
+            'quantidade', fa.quantidade
+          )
+          ORDER BY fa.ordem
+        )
+        FROM funil_atendimento fa
+      ), '[]'::json) AS funil_atendimento,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'intent', imd.intent,
+            'quantidade', imd.quantidade,
+            'percentual', imd.percentual
+          )
+          ORDER BY imd.quantidade DESC, imd.intent
+        )
+        FROM intencoes_mais_detectadas imd
+      ), '[]'::json) AS intencoes_mais_detectadas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'action', ame.action,
+            'quantidade', ame.quantidade,
+            'percentual', ame.percentual
+          )
+          ORDER BY ame.quantidade DESC, ame.action
+        )
+        FROM acoes_mais_executadas ame
+      ), '[]'::json) AS acoes_mais_executadas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'resultado', dr.resultado,
+            'quantidade', dr.quantidade,
+            'percentual', dr.percentual
+          )
+          ORDER BY dr.quantidade DESC, dr.resultado
+        )
+        FROM distribuicao_resultados dr
+      ), '[]'::json) AS distribuicao_resultados,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'tipoMensagem', dtm.tipo_mensagem,
+            'quantidade', dtm.quantidade,
+            'percentual', dtm.percentual
+          )
+          ORDER BY dtm.quantidade DESC, dtm.tipo_mensagem
+        )
+        FROM distribuicao_tipo_mensagem dtm
+      ), '[]'::json) AS distribuicao_tipo_mensagem,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'data', tam.data,
+            'label', tam.label,
+            'totalActions', tam.total_actions,
+            'askMissingInfo', tam.ask_missing_info,
+            'taxa', tam.taxa
+          )
+          ORDER BY tam.data
+        )
+        FROM taxa_ask_missing_info_por_dia tam
+      ), '[]'::json) AS taxa_ask_missing_info_por_dia,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'erroTipo', ept.erro_tipo,
+            'quantidade', ept.quantidade,
+            'percentual', ept.percentual
+          )
+          ORDER BY ept.quantidade DESC, ept.erro_tipo
+        )
+        FROM erros_por_tipo ept
+      ), '[]'::json) AS erros_por_tipo,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'conversaId', cr.conversa_id,
+            'primeiraMensagemAt', cr.primeira_mensagem_at,
+            'ultimaMensagemAt', cr.ultima_mensagem_at,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN cr.empresa_nome ELSE NULL END,
+            'telefone', cr.telefone,
+            'canal', cr.canal,
+            'status', cr.status,
+            'resultado', cr.resultado,
+            'qtdMsgCliente', cr.qtd_msg_cliente,
+            'qtdMsgAgente', cr.qtd_msg_agente,
+            'tempoPrimeiraRespostaSeg', cr.tempo_primeira_resposta_seg,
+            'tempoConclusaoSeg', cr.tempo_conclusao_seg
+          )
+          ORDER BY COALESCE(cr.ultima_mensagem_at, cr.primeira_mensagem_at) DESC NULLS LAST
+        )
+        FROM conversas_recentes cr
+      ), '[]'::json) AS conversas_recentes,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'conversaId', cad.conversa_id,
+            'primeiraMensagemAt', cad.primeira_mensagem_at,
+            'ultimaMensagemAt', cad.ultima_mensagem_at,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN cad.empresa_nome ELSE NULL END,
+            'telefone', cad.telefone,
+            'canal', cad.canal,
+            'status', cad.status,
+            'resultado', cad.resultado,
+            'qtdMsgCliente', cad.qtd_msg_cliente,
+            'qtdMsgAgente', cad.qtd_msg_agente,
+            'tempoDesdeUltimaMensagemSeg', cad.tempo_desde_ultima_mensagem_seg
+          )
+          ORDER BY cad.ultima_mensagem_at DESC NULLS LAST
+        )
+        FROM conversas_abandonadas_detalhadas cad
+      ), '[]'::json) AS conversas_abandonadas_detalhadas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'eventoId', cce.evento_id,
+            'conversaId', cce.conversa_id,
+            'createdAt', cce.created_at,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN cce.empresa_nome ELSE NULL END,
+            'telefone', cce.telefone,
+            'sessionId', cce.session_id,
+            'erroTipo', cce.erro_tipo,
+            'intent', cce.intent,
+            'action', cce.action,
+            'statusConversa', cce.status_conversa,
+            'resultado', cce.resultado
+          )
+          ORDER BY cce.created_at DESC NULLS LAST
+        )
+        FROM conversas_com_erro cce
+      ), '[]'::json) AS conversas_com_erro,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'intent', pia.intent,
+            'action', pia.action,
+            'quantidade', pia.quantidade,
+            'percentual', pia.percentual
+          )
+          ORDER BY pia.quantidade DESC, pia.intent, pia.action
+        )
+        FROM principais_intents_actions pia
+      ), '[]'::json) AS principais_intents_actions,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'empresaId', emv.empresa_id,
+            'empresa', emv.empresa_nome,
+            'conversasIniciadas', emv.conversas_iniciadas,
+            'conversasConcluidas', emv.conversas_concluidas,
+            'conversasAbandonadas', emv.conversas_abandonadas,
+            'conversasAgendamento', emv.conversas_agendamento,
+            'taxaConversao', emv.taxa_conversao,
+            'mensagensTotais', emv.mensagens_totais,
+            'tempoMedioPrimeiraRespostaSeg', emv.tempo_medio_primeira_resposta_seg,
+            'tempoMedioConclusaoSeg', emv.tempo_medio_conclusao_seg
+          )
+          ORDER BY emv.conversas_iniciadas DESC, emv.empresa_nome
+        )
+        FROM empresas_maior_volume emv
+      ), '[]'::json) AS empresas_maior_volume
+    FROM periodo p
+    CROSS JOIN resumo_conversas rc
+    CROSS JOIN resumo_eventos re
+  `, scopedParams(empresaId, isSuperAdmin))
+
+  const row = result.rows[0] || {}
+
+  return {
+    periodo: {
+      inicioMes: toDateString(row.inicio_mes),
+      fimMes: toDateString(row.fim_mes),
+      timezone: TIMEZONE,
+    },
+    cards: {
+      conversasIniciadas: toInt(row.conversas_iniciadas),
+      conversasConcluidas: toInt(row.conversas_concluidas),
+      conversasAbandonadas: toInt(row.conversas_abandonadas),
+      conversasAgendamento: toInt(row.conversas_agendamento),
+      taxaConversao: toNumber(row.taxa_conversao),
+      mediaMensagensPorConversa: toNumber(row.media_mensagens_por_conversa),
+      tempoMedioPrimeiraRespostaSeg: toNumber(row.tempo_medio_primeira_resposta_seg),
+      tempoMedioConclusaoSeg: toNumber(row.tempo_medio_conclusao_seg),
+      taxaAskMissingInfo: toNumber(row.taxa_ask_missing_info),
+      errosRegistrados: toInt(row.erros_registrados),
+      errosEmValidacao: true,
+    },
+    graficos: {
+      evolucaoDiariaConversas: row.evolucao_diaria_conversas || [],
+      funilAtendimento: row.funil_atendimento || [],
+      intencoesMaisDetectadas: row.intencoes_mais_detectadas || [],
+      acoesMaisExecutadas: row.acoes_mais_executadas || [],
+      distribuicaoResultados: row.distribuicao_resultados || [],
+      distribuicaoTipoMensagem: row.distribuicao_tipo_mensagem || [],
+      taxaAskMissingInfoPorDia: row.taxa_ask_missing_info_por_dia || [],
+      errosPorTipo: row.erros_por_tipo || [],
+    },
+    tabelas: {
+      conversasRecentes: row.conversas_recentes || [],
+      conversasAbandonadas: row.conversas_abandonadas_detalhadas || [],
+      conversasComErro: row.conversas_com_erro || [],
+      principaisIntentsActions: row.principais_intents_actions || [],
+      empresasMaiorVolume: row.empresas_maior_volume || [],
+    },
+  }
+}
+
 export const dashboardModel = {
+  async getIAAtendimento({ empresaId, isSuperAdmin }) {
+    return getIAAtendimentoCards(empresaId, isSuperAdmin)
+  },
+
   async getClientes({ empresaId, isSuperAdmin }) {
     return getClientesCards(empresaId, isSuperAdmin)
+  },
+
+  async getServicos({ empresaId, isSuperAdmin }) {
+    return getServicosCards(empresaId, isSuperAdmin)
   },
 
   async getGestaoAgenda({ empresaId, isSuperAdmin }) {
