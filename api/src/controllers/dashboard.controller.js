@@ -39,10 +39,12 @@ export async function getGestaoAgenda(req, res) {
     const empresaId = req.user.empresa_id
     const nivelAcessoId = req.user.nivel_acesso_id
     const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+    const periodo = resolveDashboardPeriod(req.query)
 
     const data = await dashboardModel.getGestaoAgenda({
       empresaId,
       isSuperAdmin,
+      periodo,
     })
 
     res.json({
@@ -51,9 +53,11 @@ export async function getGestaoAgenda(req, res) {
     })
   } catch (error) {
     console.error('Erro ao buscar gestão de agenda do dashboard:', error)
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erro ao buscar gestão de agenda do dashboard',
+      message: error.statusCode
+        ? error.message
+        : 'Erro ao buscar gestão de agenda do dashboard',
     })
   }
 }

@@ -14,8 +14,14 @@ export const dashboardService = {
   },
 
   // Buscar cards operacionais da aba Gestão de Agenda
-  async getGestaoAgenda() {
-    const response = await api.get('/dashboard/gestao-agenda')
+  async getGestaoAgenda(dateRange) {
+    const response = await api.get('/dashboard/gestao-agenda', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
     return response.data
   },
 

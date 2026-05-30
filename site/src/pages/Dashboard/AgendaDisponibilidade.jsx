@@ -317,7 +317,7 @@ function HorariosProcuradosTooltip({ active, payload, label }) {
   )
 }
 
-export default function AgendaDisponibilidade() {
+export default function AgendaDisponibilidade({ dateRange }) {
   const [loading, setLoading] = useState(true)
   const [agendaData, setAgendaData] = useState(EMPTY_DATA)
   const [errorMessage, setErrorMessage] = useState('')
@@ -328,7 +328,7 @@ export default function AgendaDisponibilidade() {
       setErrorMessage('')
 
       try {
-        const response = await dashboardService.getGestaoAgenda()
+        const response = await dashboardService.getGestaoAgenda(dateRange)
         setAgendaData(response.data || EMPTY_DATA)
       } catch (error) {
         console.error('Erro ao carregar gestão de agenda:', error)
@@ -339,7 +339,7 @@ export default function AgendaDisponibilidade() {
     }
 
     carregarDados()
-  }, [])
+  }, [dateRange])
 
   const cards = agendaData?.cards || EMPTY_DATA.cards
   const ocupacaoHojeCalculavel = Boolean(cards.disponibilidadeCalculavelHoje)
@@ -505,8 +505,8 @@ export default function AgendaDisponibilidade() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <ChartCard
-          title="Ocupação por dia da semana"
-          description="Semana atual"
+          title="Ocupação por dia do período"
+          description="Período selecionado"
           loading={loading}
           isEmpty={!temOcupacaoPorDia}
           emptyMessage="Sem dados suficientes para calcular ocupação."
@@ -812,7 +812,7 @@ export default function AgendaDisponibilidade() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <TableCard
           title="Dias com Maior Ocupação"
-          description="Top 5 do mês atual"
+          description="Top 5 do período selecionado"
           loading={loading}
           isEmpty={diasMaiorOcupacao.length === 0}
           emptyMessage="Sem dados suficientes para calcular ocupação."
@@ -823,7 +823,7 @@ export default function AgendaDisponibilidade() {
 
         <TableCard
           title="Dias com Menor Ocupação"
-          description="Top 5 do mês atual"
+          description="Top 5 do período selecionado"
           loading={loading}
           isEmpty={diasMenorOcupacao.length === 0}
           emptyMessage="Sem dados suficientes para calcular ocupação."

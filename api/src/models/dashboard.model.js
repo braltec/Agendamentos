@@ -126,17 +126,37 @@ function toTimestamp(value) {
   return value
 }
 
-async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
-  const result = await pool.query(`
-    WITH periodo AS (
-      SELECT
+async function getGestaoAgendaCards(empresaId, isSuperAdmin, periodo) {
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
         (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
         CURRENT_TIMESTAMP AS agora,
         date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_semana,
         (date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '7 days')::date AS fim_semana,
-        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
-        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        ${startParam}::date AS inicio_periodo,
+        ${endParam}::date AS fim_periodo,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS inicio_periodo_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_periodo_ts,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_proximos
+      `
+    : `
+        (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
+        CURRENT_TIMESTAMP AS agora,
+        date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_semana,
+        (date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '7 days')::date AS fim_semana,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_periodo,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_periodo,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') AT TIME ZONE '${TIMEZONE}' AS inicio_periodo_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_periodo_ts,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_proximos
+      `
+
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        ${periodoSql}
     ),
     status_flags AS (
       SELECT EXISTS (
@@ -188,8 +208,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
     ),
     dias_mes AS (
       SELECT generate_series(
-        (SELECT inicio_mes FROM periodo),
-        (SELECT fim_mes FROM periodo) - INTERVAL '1 day',
+        (SELECT inicio_periodo FROM periodo),
+        (SELECT fim_periodo FROM periodo) - INTERVAL '1 day',
         INTERVAL '1 day'
       )::date AS dia
     ),
@@ -265,7 +285,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         a.empresa_id,
         a.profissional_id,
         a.clientes_id,
-        a.agend_data,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS agend_data,
         a.agend_inicio,
         a.agend_fim,
         sc.status_agend_nome,
@@ -284,8 +304,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       FROM agendamento a
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-      WHERE a.agend_data >= p.inicio_semana
-        AND a.agend_data < p.fim_semana
+      WHERE a.agend_inicio >= (p.inicio_semana::timestamp AT TIME ZONE '${TIMEZONE}')
+        AND a.agend_inicio < (p.fim_semana::timestamp AT TIME ZONE '${TIMEZONE}')
         ${scopedAnd('a', isSuperAdmin)}
     ),
     agendamentos_mes AS (
@@ -293,7 +313,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         a.agend_id,
         a.empresa_id,
         a.profissional_id,
-        a.agend_data,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS agend_data,
         a.agend_inicio,
         a.agend_fim,
         sc.status_agend_nome,
@@ -312,8 +332,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       FROM agendamento a
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-      WHERE a.agend_data >= p.inicio_mes
-        AND a.agend_data < p.fim_mes
+      WHERE a.agend_inicio >= p.inicio_periodo_ts
+        AND a.agend_inicio < p.fim_periodo_ts
         ${scopedAnd('a', isSuperAdmin)}
     ),
     agendamentos_proximos AS (
@@ -321,7 +341,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         a.agend_id,
         a.empresa_id,
         a.profissional_id,
-        a.agend_data,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS agend_data,
         a.agend_inicio,
         a.agend_fim,
         sc.status_agend_nome,
@@ -340,8 +360,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       FROM agendamento a
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-      WHERE a.agend_data >= p.hoje
-        AND a.agend_data < p.fim_proximos
+      WHERE a.agend_inicio >= (p.hoje::timestamp AT TIME ZONE '${TIMEZONE}')
+        AND a.agend_inicio < (p.fim_proximos::timestamp AT TIME ZONE '${TIMEZONE}')
         ${scopedAnd('a', isSuperAdmin)}
     ),
     servicos_por_agendamento AS (
@@ -384,8 +404,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       SELECT
         d.dia,
         COALESCE(SUM(ep.minutos_disponiveis), 0)::numeric AS minutos_disponiveis
-      FROM dias_semana d
-      LEFT JOIN expediente_profissional ep ON ep.dia = d.dia
+      FROM dias_mes d
+      LEFT JOIN expediente_profissional_mes ep ON ep.dia = d.dia
       GROUP BY d.dia
     ),
     ocupacao_por_dia_base AS (
@@ -393,7 +413,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         agend_data AS dia,
         COALESCE(SUM(minutos_agendados) FILTER (WHERE ativo_agenda), 0)::numeric AS minutos_ocupados,
         COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda) AS total_agendamentos
-      FROM agendamentos_semana
+      FROM agendamentos_mes
       GROUP BY agend_data
     ),
     ocupacao_por_dia AS (
@@ -426,7 +446,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         pa.empresa_nome,
         COALESCE(SUM(ep.minutos_disponiveis), 0)::numeric AS minutos_disponiveis
       FROM profissionais_ativos pa
-      LEFT JOIN expediente_profissional ep ON ep.profissional_id = pa.profissional_id
+      LEFT JOIN expediente_profissional_mes ep ON ep.profissional_id = pa.profissional_id
       GROUP BY pa.profissional_id, pa.profissional_nome, pa.empresa_nome
     ),
     ocupacao_por_profissional_base AS (
@@ -434,7 +454,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
         profissional_id,
         COALESCE(SUM(minutos_agendados) FILTER (WHERE ativo_agenda), 0)::numeric AS minutos_ocupados,
         COUNT(DISTINCT agend_id) FILTER (WHERE ativo_agenda) AS total_agendamentos
-      FROM agendamentos_semana
+      FROM agendamentos_mes
       GROUP BY profissional_id
     ),
     ocupacao_por_profissional AS (
@@ -871,6 +891,8 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       LIMIT 5
     )
     SELECT
+      (SELECT inicio_periodo FROM periodo) AS inicio_periodo,
+      (SELECT fim_periodo FROM periodo) AS fim_periodo,
       CASE
         WHEN cap.minutos_disponiveis_hoje > 0
           THEN ROUND((oc.minutos_ocupados_hoje / cap.minutos_disponiveis_hoje) * 100, 1)
@@ -1039,7 +1061,7 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
       ORDER BY janela_inicio, profissional_nome
       LIMIT 1
     ) pj ON true
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   const row = result.rows[0] || {}
   const proximoHorarioLivre = row.proximo_horario_livre_hora
@@ -1051,6 +1073,15 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
     : null
 
   return {
+    periodo: {
+      inicioMes: toDateString(row.inicio_periodo),
+      fimMes: toDateString(row.fim_periodo),
+      timezone: TIMEZONE,
+      preset: periodo?.preset || 'mes_atual',
+      startDate: periodo?.startDate || toDateString(row.inicio_periodo),
+      endDate: periodo?.endDate || null,
+      endDateExclusive: periodo?.endDateExclusive || toDateString(row.fim_periodo),
+    },
     cards: {
       ocupacaoHoje: toNullableNumber(row.ocupacao_hoje),
       ocupacaoSemana: toNullableNumber(row.ocupacao_semana),
@@ -3614,8 +3645,8 @@ export const dashboardModel = {
     return getServicosCards(empresaId, isSuperAdmin, periodo)
   },
 
-  async getGestaoAgenda({ empresaId, isSuperAdmin }) {
-    return getGestaoAgendaCards(empresaId, isSuperAdmin)
+  async getGestaoAgenda({ empresaId, isSuperAdmin, periodo }) {
+    return getGestaoAgendaCards(empresaId, isSuperAdmin, periodo)
   },
 
   async getVisaoGeral({ empresaId, isSuperAdmin, periodo }) {

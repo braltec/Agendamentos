@@ -379,7 +379,7 @@ export default function Dashboard() {
       ) : activeTab === 'ia-atendimento' ? (
         <IAAtendimento dateRange={dateRange} />
       ) : activeTab === 'agenda-disponibilidade' ? (
-        <AgendaDisponibilidade />
+        <AgendaDisponibilidade dateRange={dateRange} />
       ) : (
         <>
       {errorMessage && (
