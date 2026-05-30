@@ -1,5 +1,6 @@
 import pool from '../config/database.js'
 import { dashboardModel } from '../models/dashboard.model.js'
+import { resolveDashboardPeriod } from '../utils/dashboardPeriod.js'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -9,10 +10,12 @@ export async function getVisaoGeral(req, res) {
     const empresaId = req.user.empresa_id
     const nivelAcessoId = req.user.nivel_acesso_id
     const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+    const periodo = resolveDashboardPeriod(req.query)
 
     const data = await dashboardModel.getVisaoGeral({
       empresaId,
       isSuperAdmin,
+      periodo,
     })
 
     res.json({
@@ -21,9 +24,11 @@ export async function getVisaoGeral(req, res) {
     })
   } catch (error) {
     console.error('Erro ao buscar visão geral do dashboard:', error)
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erro ao buscar visão geral do dashboard',
+      message: error.statusCode
+        ? error.message
+        : 'Erro ao buscar visão geral do dashboard',
     })
   }
 }

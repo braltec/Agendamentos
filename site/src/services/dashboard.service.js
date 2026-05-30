@@ -2,8 +2,14 @@ import api from './api'
 
 export const dashboardService = {
   // Buscar dados executivos da aba Visão Geral
-  async getVisaoGeral() {
-    const response = await api.get('/dashboard/visao-geral')
+  async getVisaoGeral(dateRange) {
+    const response = await api.get('/dashboard/visao-geral', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
     return response.data
   },
 

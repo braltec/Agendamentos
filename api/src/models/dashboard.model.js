@@ -10,14 +10,36 @@ function scopedParams(empresaId, isSuperAdmin) {
   return isSuperAdmin ? [] : [empresaId]
 }
 
-function baseCtes(isSuperAdmin) {
+function scopedPeriodParams(empresaId, isSuperAdmin, periodo) {
+  const params = scopedParams(empresaId, isSuperAdmin)
+  if (!periodo) return params
+
+  return [...params, periodo.startDate, periodo.endDateExclusive]
+}
+
+function baseCtes(isSuperAdmin, periodo) {
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
+        ${startParam}::date AS inicio_mes,
+        ${endParam}::date AS fim_mes,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+    : `
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+
   return `
     WITH periodo AS (
       SELECT
         (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
         CURRENT_TIMESTAMP AS agora,
-        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
-        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes
+        ${periodoSql}
     ),
     status_classificado AS (
       SELECT
@@ -42,8 +64,8 @@ function baseCtes(isSuperAdmin) {
       FROM agendamento a
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-      WHERE a.agend_data >= p.inicio_mes
-        AND a.agend_data < p.fim_mes
+      WHERE a.agend_inicio >= p.inicio_ts
+        AND a.agend_inicio < p.fim_ts
         ${scopedAnd('a', isSuperAdmin)}
     ),
     receita_servicos AS (
@@ -1724,9 +1746,9 @@ async function getClientesCards(empresaId, isSuperAdmin) {
   }
 }
 
-async function getResumo(empresaId, isSuperAdmin) {
+async function getResumo(empresaId, isSuperAdmin, periodo) {
   const result = await pool.query(`
-    ${baseCtes(isSuperAdmin)},
+    ${baseCtes(isSuperAdmin, periodo)},
     contagens AS (
       SELECT
         COUNT(DISTINCT agend_id) AS agendamentos_mes_total,
@@ -1734,7 +1756,7 @@ async function getResumo(empresaId, isSuperAdmin) {
         COUNT(DISTINCT agend_id) FILTER (WHERE cancelado) AS agendamentos_mes_cancelados,
         COUNT(DISTINCT agend_id) FILTER (WHERE realizado) AS agendamentos_mes_realizados,
         COUNT(DISTINCT agend_id) FILTER (WHERE previsto) AS agendamentos_mes_previstos,
-        COUNT(DISTINCT agend_id) FILTER (WHERE agend_data = (SELECT hoje FROM periodo) AND ativo) AS agendamentos_hoje,
+        COUNT(DISTINCT agend_id) FILTER (WHERE ativo) AS agendamentos_hoje,
         COALESCE(SUM(valor_total) FILTER (WHERE previsto), 0) AS receita_prevista_mes,
         COALESCE(SUM(valor_total) FILTER (WHERE realizado), 0) AS receita_realizada_mes,
         COALESCE(SUM(horas_agendadas) FILTER (WHERE NOT cancelado), 0) AS horas_agendadas_mes
@@ -1830,7 +1852,7 @@ async function getResumo(empresaId, isSuperAdmin) {
     CROSS JOIN clientes_recorrentes cr
     CROSS JOIN servicos_realizados sr
     CROSS JOIN horas_disponiveis hd
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   const row = result.rows[0] || {}
 
@@ -1864,9 +1886,9 @@ async function getResumo(empresaId, isSuperAdmin) {
   }
 }
 
-async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
+async function getEvolucaoDiaria(empresaId, isSuperAdmin, periodo) {
   const result = await pool.query(`
-    ${baseCtes(isSuperAdmin)},
+    ${baseCtes(isSuperAdmin, periodo)},
     evolucao_agendamentos AS (
       SELECT
         a.agend_id,
@@ -1877,8 +1899,8 @@ async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
       FROM agendamento a
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-      WHERE (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
-        AND (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+      WHERE a.agend_inicio >= p.inicio_ts
+        AND a.agend_inicio < p.fim_ts
         ${scopedAnd('a', isSuperAdmin)}
     ),
     receita_servicos_evolucao AS (
@@ -1904,6 +1926,7 @@ async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
     SELECT
       d.dia::date AS data,
       EXTRACT(DAY FROM d.dia)::int AS dia,
+      to_char(d.dia, 'DD/MM') AS label,
       COALESCE(COUNT(DISTINCT v.agend_id) FILTER (WHERE NOT v.cancelado), 0) AS agendamentos,
       COALESCE(COUNT(DISTINCT v.agend_id) FILTER (WHERE v.cancelado), 0) AS cancelamentos,
       COALESCE(SUM(v.valor_total) FILTER (WHERE v.valor_recebido), 0) AS valor_recebido,
@@ -1916,11 +1939,12 @@ async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
     LEFT JOIN evolucao_base v ON v.data_local = d.dia::date
     GROUP BY d.dia
     ORDER BY d.dia
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   return result.rows.map((row) => ({
     data: toDateString(row.data),
     dia: toInt(row.dia),
+    label: row.label,
     agendamentos: toInt(row.agendamentos),
     cancelamentos: toInt(row.cancelamentos),
     valorRecebido: toNumber(row.valor_recebido),
@@ -1930,9 +1954,9 @@ async function getEvolucaoDiaria(empresaId, isSuperAdmin) {
   }))
 }
 
-async function getServicosResumo(empresaId, isSuperAdmin) {
+async function getServicosResumo(empresaId, isSuperAdmin, periodo) {
   const result = await pool.query(`
-    ${baseCtes(isSuperAdmin)},
+    ${baseCtes(isSuperAdmin, periodo)},
     servicos_mes AS (
       SELECT
         srv.servicos_id,
@@ -1957,7 +1981,7 @@ async function getServicosResumo(empresaId, isSuperAdmin) {
       COALESCE(SUM(valor_aplicado) FILTER (WHERE NOT cancelado), 0) AS receita_nao_cancelada
     FROM servicos_mes
     GROUP BY servicos_id, servicos_nome
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   return result.rows.map((row) => ({
     servicosId: row.servicos_id,
@@ -1971,9 +1995,9 @@ async function getServicosResumo(empresaId, isSuperAdmin) {
   }))
 }
 
-async function getAgendamentosPorDiaSemana(empresaId, isSuperAdmin) {
+async function getAgendamentosPorDiaSemana(empresaId, isSuperAdmin, periodo) {
   const result = await pool.query(`
-    ${baseCtes(isSuperAdmin)},
+    ${baseCtes(isSuperAdmin, periodo)},
     dias_semana(dia, nome, nome_curto, ordem) AS (
       VALUES
         (0, 'Domingo', 'Dom', 7),
@@ -1993,7 +2017,7 @@ async function getAgendamentosPorDiaSemana(empresaId, isSuperAdmin) {
     LEFT JOIN valores_agendamento v ON EXTRACT(DOW FROM v.agend_data)::int = d.dia
     GROUP BY d.nome, d.nome_curto, d.ordem
     ORDER BY d.ordem
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   return result.rows.map((row) => ({
     nome: row.nome,
@@ -2003,9 +2027,9 @@ async function getAgendamentosPorDiaSemana(empresaId, isSuperAdmin) {
   }))
 }
 
-async function getAgendamentosPorFaixaHorario(empresaId, isSuperAdmin) {
+async function getAgendamentosPorFaixaHorario(empresaId, isSuperAdmin, periodo) {
   const result = await pool.query(`
-    ${baseCtes(isSuperAdmin)},
+    ${baseCtes(isSuperAdmin, periodo)},
     faixas(faixa, ordem) AS (
       VALUES
         ('Madrugada', 1),
@@ -2033,7 +2057,7 @@ async function getAgendamentosPorFaixaHorario(empresaId, isSuperAdmin) {
     LEFT JOIN agendamentos_faixa a ON a.faixa = f.faixa
     GROUP BY f.faixa, f.ordem
     ORDER BY f.ordem
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   return result.rows.map((row) => ({
     faixa: row.faixa,
@@ -2148,7 +2172,7 @@ async function getProfissionaisComAgendaHoje(empresaId, isSuperAdmin) {
   }))
 }
 
-async function getEmpresasResumo(isSuperAdmin) {
+async function getEmpresasResumo(isSuperAdmin, periodo) {
   if (!isSuperAdmin) {
     return {
       empresasMaiorMovimento: [],
@@ -2158,7 +2182,7 @@ async function getEmpresasResumo(isSuperAdmin) {
 
   const [maiorMovimento, semMovimento] = await Promise.all([
     pool.query(`
-      ${baseCtes(true)}
+      ${baseCtes(true, periodo)}
       SELECT
         e.empresa_id,
         e.empresa_nome,
@@ -2172,29 +2196,15 @@ async function getEmpresasResumo(isSuperAdmin) {
       HAVING COUNT(DISTINCT v.agend_id) FILTER (WHERE NOT v.cancelado) > 0
       ORDER BY agendamentos_mes DESC, receita_realizada DESC, receita_prevista DESC, e.empresa_nome
       LIMIT 8
-    `),
+    `, scopedPeriodParams(null, true, periodo)),
     pool.query(`
-      WITH periodo AS (
-        SELECT
-          date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
-          (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes
-      ),
-      status_classificado AS (
-        SELECT
-          status_agend_id,
-          LOWER(status_agend_nome) LIKE '%cancel%' AS cancelado
-        FROM status_agend
-      ),
+      ${baseCtes(true, periodo)},
       movimento AS (
         SELECT
-          a.empresa_id,
-          COUNT(DISTINCT a.agend_id) FILTER (WHERE NOT sc.cancelado) AS total
-        FROM agendamento a
-        JOIN periodo p ON true
-        JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
-        WHERE a.agend_data >= p.inicio_mes
-          AND a.agend_data < p.fim_mes
-        GROUP BY a.empresa_id
+          empresa_id,
+          COUNT(DISTINCT agend_id) FILTER (WHERE NOT cancelado) AS total
+        FROM agendamentos_mes
+        GROUP BY empresa_id
       )
       SELECT
         e.empresa_id,
@@ -2206,7 +2216,7 @@ async function getEmpresasResumo(isSuperAdmin) {
         AND COALESCE(m.total, 0) = 0
       ORDER BY e.empresa_nome
       LIMIT 8
-    `),
+    `, scopedPeriodParams(null, true, periodo)),
   ])
 
   return {
@@ -3512,12 +3522,12 @@ export const dashboardModel = {
     return getGestaoAgendaCards(empresaId, isSuperAdmin)
   },
 
-  async getVisaoGeral({ empresaId, isSuperAdmin }) {
+  async getVisaoGeral({ empresaId, isSuperAdmin, periodo }) {
     // TODO futuro: no-show exige status "Não compareceu" ou campo explícito de presença.
     // TODO futuro: desempenho de IA deve vir de uma tabela de eventos do agente
     // com empresa_id, session_id, cliente_id, canal, intent, action, status, erro,
     // tempo_resposta_ms, tokens_input, tokens_output, custo_estimado e created_at.
-    const resumo = await getResumo(empresaId, isSuperAdmin)
+    const resumo = await getResumo(empresaId, isSuperAdmin, periodo)
 
     const [
       evolucaoDiaria,
@@ -3528,13 +3538,13 @@ export const dashboardModel = {
       profissionaisComAgendaHoje,
       empresasResumo,
     ] = await Promise.all([
-      getEvolucaoDiaria(empresaId, isSuperAdmin),
-      getServicosResumo(empresaId, isSuperAdmin),
-      getAgendamentosPorDiaSemana(empresaId, isSuperAdmin),
-      getAgendamentosPorFaixaHorario(empresaId, isSuperAdmin),
+      getEvolucaoDiaria(empresaId, isSuperAdmin, periodo),
+      getServicosResumo(empresaId, isSuperAdmin, periodo),
+      getAgendamentosPorDiaSemana(empresaId, isSuperAdmin, periodo),
+      getAgendamentosPorFaixaHorario(empresaId, isSuperAdmin, periodo),
       getProximosAgendamentos(empresaId, isSuperAdmin),
       getProfissionaisComAgendaHoje(empresaId, isSuperAdmin),
-      getEmpresasResumo(isSuperAdmin),
+      getEmpresasResumo(isSuperAdmin, periodo),
     ])
 
     const graficos = montarGraficos(servicosResumo, resumo, {
@@ -3550,7 +3560,13 @@ export const dashboardModel = {
     })
 
     return {
-      periodo: resumo.periodo,
+      periodo: {
+        ...resumo.periodo,
+        preset: periodo?.preset || 'mes_atual',
+        startDate: periodo?.startDate || resumo.periodo.inicioMes,
+        endDate: periodo?.endDate || null,
+        endDateExclusive: periodo?.endDateExclusive || resumo.periodo.fimMes,
+      },
       cards: resumo.cards,
       graficos,
       tabelas,

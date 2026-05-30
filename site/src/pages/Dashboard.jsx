@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Activity,
   AlertCircle,
@@ -36,6 +36,8 @@ import AgendaDisponibilidade from './Dashboard/AgendaDisponibilidade'
 import ClientesDashboard from './Dashboard/Clientes'
 import ServicosDashboard from './Dashboard/Servicos'
 import IAAtendimento from './Dashboard/IAAtendimento'
+import DashboardDateRangeFilter from './Dashboard/DashboardDateRangeFilter'
+import { readDateRangeFromSearchParams } from '../utils/dashboardDateRange'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -177,7 +179,7 @@ function DashboardTooltip({ active, payload, label }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2">
-      <p className="text-sm font-semibold text-gray-900 mb-2">Dia {label}</p>
+      <p className="text-sm font-semibold text-gray-900 mb-2">{label}</p>
       <div className="space-y-1">
         {payload.map((item) => {
           const dataKey = String(item.dataKey).toLowerCase()
@@ -204,11 +206,13 @@ function SimpleList({ emptyIcon, emptyMessage, children, isEmpty, loading }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState(EMPTY_DASHBOARD)
   const [errorMessage, setErrorMessage] = useState('')
   const [activeTab, setActiveTab] = useState('visao-geral')
+  const [dateRange, setDateRange] = useState(() => readDateRangeFromSearchParams(searchParams))
 
   const isSuperAdmin = user?.nivel_acesso_id === SUPER_ADMIN_ID
   const activeTabTitle = {
@@ -235,10 +239,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     const carregarDados = async () => {
+      if (activeTab !== 'visao-geral') return
+
       setLoading(true)
       setErrorMessage('')
       try {
-        const response = await dashboardService.getVisaoGeral()
+        const response = await dashboardService.getVisaoGeral(dateRange)
         setDashboardData(response.data || EMPTY_DASHBOARD)
       } catch (error) {
         console.error('Erro ao carregar visão geral:', error)
@@ -249,7 +255,16 @@ export default function Dashboard() {
     }
 
     carregarDados()
-  }, [])
+  }, [activeTab, dateRange])
+
+  const handleDateRangeChange = (nextDateRange) => {
+    setDateRange(nextDateRange)
+    setSearchParams({
+      preset: nextDateRange.preset,
+      startDate: nextDateRange.startDate,
+      endDate: nextDateRange.endDate,
+    }, { replace: true })
+  }
 
   const data = dashboardData || EMPTY_DASHBOARD
   const cards = data.cards || EMPTY_DASHBOARD.cards
@@ -290,10 +305,9 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">{activeTabTitle}</p>
         </div>
-        <div className="inline-flex w-fit rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-          Período atual
-        </div>
       </div>
+
+      <DashboardDateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
 
       <div className="flex flex-wrap gap-2 border-b border-gray-200">
         <button
@@ -381,14 +395,14 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-6">
         <MetricCard
-          title="Agendamentos hoje"
+          title="Agendamentos ativos"
           value={loading ? '...' : formatNumber(cards.agendamentosHoje)}
-          helper="Compromissos ativos na agenda"
+          helper="Compromissos ativos no período"
           icon={Calendar}
           tone="blue"
         />
         <MetricCard
-          title="Agendamentos no mês"
+          title="Agendamentos no período"
           value={loading ? '...' : formatNumber(cards.agendamentosMes)}
           helper={`${formatNumber(cards.agendamentosMesAtivos)} ativos, ${formatNumber(cards.agendamentosMesCancelados)} cancelados`}
           icon={Activity}
@@ -418,7 +432,7 @@ export default function Dashboard() {
         <MetricCard
           title="Taxa de cancelamento"
           value={loading ? '...' : formatPercent(cards.taxaCancelamentoMes)}
-          helper="Cancelados sobre agendamentos do mês"
+          helper="Cancelados sobre agendamentos do período"
           icon={Percent}
           tone="red"
         />
@@ -428,14 +442,14 @@ export default function Dashboard() {
         <MetricCard
           title="Clientes novos"
           value={loading ? '...' : formatNumber(cards.clientesNovosMes)}
-          helper="Cadastrados no mês"
+          helper="Cadastrados no período"
           icon={UserPlus}
           tone="green"
         />
         <MetricCard
           title="Clientes recorrentes"
           value={loading ? '...' : formatNumber(cards.clientesRecorrentesMes)}
-          helper="2+ agendamentos no mês"
+          helper="2+ agendamentos no período"
           icon={Repeat}
           tone="purple"
         />
@@ -448,7 +462,7 @@ export default function Dashboard() {
                 ? formatPercent(cards.taxaOcupacaoEstimada)
                 : 'Sem dados'
           }
-          helper={cards.ocupacaoCalculavel ? 'Horas agendadas / disponíveis' : 'Sem dados suficientes'}
+          helper={cards.ocupacaoCalculavel ? 'Horas agendadas / disponíveis no período' : 'Sem dados suficientes'}
           icon={Clock}
           tone={cards.ocupacaoCalculavel ? 'orange' : 'gray'}
           muted={!cards.ocupacaoCalculavel}
@@ -456,7 +470,7 @@ export default function Dashboard() {
         <MetricCard
           title="Serviços realizados"
           value={loading ? '...' : formatNumber(cards.servicosRealizadosMes)}
-          helper="Procedimentos dentro de atendimentos já passados"
+          helper="Procedimentos em atendimentos já passados no período"
           icon={Briefcase}
           tone="blue"
         />
@@ -465,7 +479,7 @@ export default function Dashboard() {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Evolução diária do mês</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Evolução diária do período</h3>
             <p className="text-sm text-gray-500">Compromissos, cancelamentos e valores por dia</p>
           </div>
         </CardHeader>
@@ -479,7 +493,7 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={evolucaoDiaria} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="dia" tick={{ fill: '#6B7280', fontSize: 12 }} />
+                  <XAxis dataKey="label" tick={{ fill: '#6B7280', fontSize: 12 }} />
                   <YAxis yAxisId="left" allowDecimals={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
                   <YAxis
                     yAxisId="right"
@@ -818,7 +832,7 @@ export default function Dashboard() {
                 loading={loading}
                 isEmpty={tabelas.empresasSemMovimento.length === 0}
                 emptyIcon={Building2}
-                emptyMessage="Nenhuma empresa ativa sem movimento neste mês."
+                emptyMessage="Nenhuma empresa ativa sem movimento neste período."
               >
                 {tabelas.empresasSemMovimento.map((empresa) => (
                   <div key={empresa.empresaId} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
