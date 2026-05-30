@@ -64,10 +64,12 @@ export async function getClientes(req, res) {
     const empresaId = req.user.empresa_id
     const nivelAcessoId = req.user.nivel_acesso_id
     const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+    const periodo = resolveDashboardPeriod(req.query)
 
     const data = await dashboardModel.getClientes({
       empresaId,
       isSuperAdmin,
+      periodo,
     })
 
     res.json({
@@ -76,9 +78,11 @@ export async function getClientes(req, res) {
     })
   } catch (error) {
     console.error('Erro ao buscar clientes do dashboard:', error)
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Erro ao buscar clientes do dashboard',
+      message: error.statusCode
+        ? error.message
+        : 'Erro ao buscar clientes do dashboard',
     })
   }
 }

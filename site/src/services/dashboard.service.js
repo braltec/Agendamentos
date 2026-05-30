@@ -20,8 +20,14 @@ export const dashboardService = {
   },
 
   // Buscar cards da aba Clientes
-  async getClientes() {
-    const response = await api.get('/dashboard/clientes')
+  async getClientes(dateRange) {
+    const response = await api.get('/dashboard/clientes', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
     return response.data
   },
 

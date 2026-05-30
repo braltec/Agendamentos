@@ -284,7 +284,7 @@ function RetencaoTooltip({ active, payload, label }) {
   )
 }
 
-export default function ClientesDashboard() {
+export default function ClientesDashboard({ dateRange }) {
   const [loading, setLoading] = useState(true)
   const [clientesData, setClientesData] = useState(EMPTY_DATA)
   const [errorMessage, setErrorMessage] = useState('')
@@ -295,7 +295,7 @@ export default function ClientesDashboard() {
       setErrorMessage('')
 
       try {
-        const response = await dashboardService.getClientes()
+        const response = await dashboardService.getClientes(dateRange)
         setClientesData(response.data || EMPTY_DATA)
       } catch (error) {
         console.error('Erro ao carregar dashboard de clientes:', error)
@@ -306,7 +306,7 @@ export default function ClientesDashboard() {
     }
 
     carregarDados()
-  }, [])
+  }, [dateRange])
 
   const cards = clientesData?.cards || EMPTY_DATA.cards
   const graficos = clientesData?.graficos || EMPTY_DATA.graficos
@@ -401,9 +401,9 @@ export default function ClientesDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <ClientesMetricCard
-          title="Clientes novos no mês"
+          title="Clientes novos no período"
           value={loading ? '...' : formatNumber(cards.clientesNovosMes)}
-          helper="Cadastrados no mês atual"
+          helper="Cadastrados no período"
           icon={UserPlus}
           tone="blue"
         />
@@ -411,15 +411,15 @@ export default function ClientesDashboard() {
         <ClientesMetricCard
           title="Clientes recorrentes"
           value={loading ? '...' : formatNumber(cards.clientesRecorrentesMes)}
-          helper="2 ou mais agendamentos no mês"
+          helper="Com histórico ou recorrência no período"
           icon={Repeat}
           tone="purple"
         />
 
         <ClientesMetricCard
-          title="Clientes ativos 30 dias"
+          title="Clientes ativos no período"
           value={loading ? '...' : formatNumber(cards.clientesAtivos30Dias)}
-          helper="Com agendamento real recente"
+          helper="Com agendamento real no período"
           icon={UserCheck}
           tone="green"
         />
@@ -435,7 +435,7 @@ export default function ClientesDashboard() {
         <ClientesMetricCard
           title="Ticket médio por cliente"
           value={loading ? '...' : formatCurrency(cards.ticketMedioCliente)}
-          helper="Receita do mês / clientes atendidos"
+          helper="Receita do período / clientes atendidos"
           icon={DollarSign}
           tone="green"
         />
@@ -443,7 +443,7 @@ export default function ClientesDashboard() {
         <ClientesMetricCard
           title="Agendamentos médios"
           value={loading ? '...' : formatDecimal(cards.agendamentosMediosPorCliente)}
-          helper="Agendamentos do mês por cliente"
+          helper="Agendamentos do período por cliente"
           icon={CalendarClock}
           tone="orange"
         />
@@ -451,7 +451,7 @@ export default function ClientesDashboard() {
         <ClientesMetricCard
           title="Receita dos recorrentes"
           value={loading ? '...' : formatCurrency(cards.receitaClientesRecorrentes)}
-          helper="Clientes com 2+ agendamentos no mês"
+          helper="Receita no período"
           icon={TrendingUp}
           tone="purple"
         />

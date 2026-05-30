@@ -1080,24 +1080,46 @@ async function getGestaoAgendaCards(empresaId, isSuperAdmin) {
   }
 }
 
-async function getClientesCards(empresaId, isSuperAdmin) {
-  const result = await pool.query(`
-    WITH periodo AS (
-      SELECT
+async function getClientesCards(empresaId, isSuperAdmin, periodo) {
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
+        (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
+        CURRENT_TIMESTAMP AS agora,
+        ${startParam}::date AS inicio_mes,
+        ${endParam}::date AS fim_mes,
+        date_trunc('month', ${startParam}::timestamp)::date AS inicio_12_meses,
+        date_trunc('month', (${endParam}::date - INTERVAL '1 day'))::date AS fim_serie_mes,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_ts,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '60 days')::date AS limite_inativo,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '365 days')::date AS limite_base_antiga,
+        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_retorno
+      `
+    : `
         (CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS hoje,
         CURRENT_TIMESTAMP AS agora,
         date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
         (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
         (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months')::date AS inicio_12_meses,
-        ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '30 days')::date AS inicio_30_dias,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS fim_serie_mes,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '60 days')::date AS limite_inativo,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date - INTERVAL '365 days')::date AS limite_base_antiga,
         ((CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date + INTERVAL '7 days')::date AS fim_retorno
+      `
+
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        ${periodoSql}
     ),
     meses_periodo AS (
       SELECT generate_series(
         (SELECT inicio_12_meses FROM periodo),
-        (SELECT inicio_mes FROM periodo),
+        (SELECT fim_serie_mes FROM periodo),
         INTERVAL '1 month'
       )::date AS mes_inicio
     ),
@@ -1105,6 +1127,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       SELECT
         mes_inicio,
         (mes_inicio + INTERVAL '1 month')::date AS mes_fim,
+        GREATEST(mes_inicio, (SELECT inicio_mes FROM periodo))::date AS mes_periodo_inicio,
+        LEAST((mes_inicio + INTERVAL '1 month')::date, (SELECT fim_mes FROM periodo))::date AS mes_periodo_fim,
         to_char(mes_inicio, 'YYYY-MM') AS mes,
         CASE EXTRACT(MONTH FROM mes_inicio)::int
           WHEN 1 THEN 'Jan'
@@ -1145,7 +1169,7 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         a.agend_id,
         a.empresa_id,
         a.clientes_id,
-        a.agend_data,
+        (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date AS agend_data,
         a.agend_inicio,
         a.agend_valor,
         sc.status_agend_nome,
@@ -1192,20 +1216,31 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         COUNT(DISTINCT agend_id) AS total_agendamentos,
         COALESCE(SUM(valor_total), 0)::numeric AS receita_total
       FROM agendamentos_validos
-      WHERE agend_data >= (SELECT inicio_mes FROM periodo)
-        AND agend_data < (SELECT fim_mes FROM periodo)
+      WHERE agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND agend_inicio < (SELECT fim_ts FROM periodo)
       GROUP BY clientes_id
     ),
     clientes_recorrentes_mes AS (
-      SELECT clientes_id
-      FROM clientes_mes
-      WHERE total_agendamentos >= 2
+      SELECT cm.clientes_id
+      FROM clientes_mes cm
+      WHERE EXISTS (
+          SELECT 1
+          FROM agendamentos_validos av_ant
+          WHERE av_ant.clientes_id = cm.clientes_id
+            AND av_ant.agend_inicio < (SELECT inicio_ts FROM periodo)
+        )
+        OR (
+          SELECT COUNT(DISTINCT av_total.agend_id)
+          FROM agendamentos_validos av_total
+          WHERE av_total.clientes_id = cm.clientes_id
+            AND av_total.agend_inicio < (SELECT fim_ts FROM periodo)
+        ) >= 2
     ),
     clientes_ativos_30_dias AS (
       SELECT DISTINCT clientes_id
-      FROM agendamentos_validos_passados
-      WHERE agend_data >= (SELECT inicio_30_dias FROM periodo)
-        AND agend_data <= (SELECT hoje FROM periodo)
+      FROM agendamentos_validos
+      WHERE agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND agend_inicio < (SELECT fim_ts FROM periodo)
     ),
     clientes_historico AS (
       SELECT
@@ -1280,8 +1315,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       SELECT COALESCE(SUM(av.valor_total), 0)::numeric AS total
       FROM agendamentos_validos av
       JOIN clientes_recorrentes_mes crm ON crm.clientes_id = av.clientes_id
-      WHERE av.agend_data >= (SELECT inicio_mes FROM periodo)
-        AND av.agend_data < (SELECT fim_mes FROM periodo)
+      WHERE av.agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND av.agend_inicio < (SELECT fim_ts FROM periodo)
     ),
     totais_mes AS (
       SELECT
@@ -1289,8 +1324,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         COUNT(DISTINCT clientes_id) AS clientes_com_agendamento_mes,
         COALESCE(SUM(valor_total), 0)::numeric AS receita_mes
       FROM agendamentos_validos
-      WHERE agend_data >= (SELECT inicio_mes FROM periodo)
-        AND agend_data < (SELECT fim_mes FROM periodo)
+      WHERE agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND agend_inicio < (SELECT fim_ts FROM periodo)
     ),
     primeiro_agendamento_cliente AS (
       SELECT
@@ -1306,8 +1341,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         COUNT(DISTINCT cb.clientes_id) AS clientes_novos
       FROM meses_rotulados mr
       LEFT JOIN clientes_base cb
-        ON (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_inicio
-        AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_fim
+        ON (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_periodo_inicio
+        AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_periodo_fim
       GROUP BY mr.mes, mr.label, mr.mes_inicio
       ORDER BY mr.mes_inicio
     ),
@@ -1321,8 +1356,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         COALESCE(SUM(av.valor_total), 0)::numeric AS receita_mes
       FROM meses_rotulados mr
       LEFT JOIN agendamentos_validos av
-        ON av.agend_data >= mr.mes_inicio
-        AND av.agend_data < mr.mes_fim
+        ON av.agend_data >= mr.mes_periodo_inicio
+        AND av.agend_data < mr.mes_periodo_fim
       GROUP BY mr.mes_inicio, mr.mes, mr.label, av.clientes_id
     ),
     novos_vs_recorrentes AS (
@@ -1332,19 +1367,19 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         (
           SELECT COUNT(DISTINCT cb.clientes_id)
           FROM clientes_base cb
-          WHERE (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_inicio
-            AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_fim
+          WHERE (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= mr.mes_periodo_inicio
+            AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < mr.mes_periodo_fim
         ) AS novos,
         (
           SELECT COUNT(DISTINCT av.clientes_id)
           FROM agendamentos_validos av
-          WHERE av.agend_data >= mr.mes_inicio
-            AND av.agend_data < mr.mes_fim
+          WHERE av.agend_data >= mr.mes_periodo_inicio
+            AND av.agend_data < mr.mes_periodo_fim
             AND EXISTS (
               SELECT 1
               FROM agendamentos_validos av_ant
               WHERE av_ant.clientes_id = av.clientes_id
-                AND av_ant.agend_data < mr.mes_inicio
+                AND av_ant.agend_data < mr.mes_periodo_inicio
             )
         ) AS recorrentes
       FROM meses_rotulados mr
@@ -1356,6 +1391,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         COUNT(DISTINCT av.agend_id) AS total_agendamentos
       FROM clientes_base cb
       JOIN agendamentos_validos av ON av.clientes_id = cb.clientes_id
+      WHERE av.agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND av.agend_inicio < (SELECT fim_ts FROM periodo)
       GROUP BY cb.clientes_id
     ),
     faixas_frequencia(ordem, faixa) AS (
@@ -1431,7 +1468,7 @@ async function getClientesCards(empresaId, isSuperAdmin) {
               SELECT 1
               FROM agendamentos_validos av_ant
               WHERE av_ant.clientes_id = capm.clientes_id
-                AND av_ant.agend_data < mr.mes_inicio
+                AND av_ant.agend_data < mr.mes_periodo_inicio
             )
         ) AS clientes_retornaram
       FROM meses_rotulados mr
@@ -1453,8 +1490,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       FROM clientes_base cb
       JOIN empresa e ON e.empresa_id = cb.empresa_id
       JOIN agendamentos_validos av ON av.clientes_id = cb.clientes_id
-      WHERE av.agend_data >= (SELECT inicio_mes FROM periodo)
-        AND av.agend_data < (SELECT fim_mes FROM periodo)
+      WHERE av.agend_inicio >= (SELECT inicio_ts FROM periodo)
+        AND av.agend_inicio < (SELECT fim_ts FROM periodo)
       GROUP BY
         cb.clientes_id,
         cb.clientes_nome,
@@ -1540,6 +1577,16 @@ async function getClientesCards(empresaId, isSuperAdmin) {
         crh.primeiro_agendamento,
         crh.total_agendamentos
       FROM clientes_resumo_historico crh
+      -- Quando a data de cadastro não existe, usamos o primeiro agendamento válido
+      -- apenas para posicionar o cliente na lista do período.
+      WHERE COALESCE(
+          (crh.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date,
+          crh.primeiro_agendamento
+        ) >= (SELECT inicio_mes FROM periodo)
+        AND COALESCE(
+          (crh.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date,
+          crh.primeiro_agendamento
+        ) < (SELECT fim_mes FROM periodo)
       ORDER BY
         (crh.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date DESC NULLS LAST,
         crh.primeiro_agendamento DESC NULLS LAST,
@@ -1547,6 +1594,8 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       LIMIT 20
     )
     SELECT
+      (SELECT inicio_mes FROM periodo) AS inicio_mes,
+      (SELECT fim_mes FROM periodo) AS fim_mes,
       COUNT(DISTINCT cb.clientes_id) FILTER (
         WHERE (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date >= (SELECT inicio_mes FROM periodo)
           AND (cb.clientes_dt_criacao AT TIME ZONE '${TIMEZONE}')::date < (SELECT fim_mes FROM periodo)
@@ -1714,11 +1763,20 @@ async function getClientesCards(empresaId, isSuperAdmin) {
       tm.receita_mes,
       tm.agendamentos_mes,
       rr.total
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   const row = result.rows[0] || {}
 
   return {
+    periodo: {
+      inicioMes: toDateString(row.inicio_mes),
+      fimMes: toDateString(row.fim_mes),
+      timezone: TIMEZONE,
+      preset: periodo?.preset || 'mes_atual',
+      startDate: periodo?.startDate || toDateString(row.inicio_mes),
+      endDate: periodo?.endDate || null,
+      endDateExclusive: periodo?.endDateExclusive || toDateString(row.fim_mes),
+    },
     cards: {
       clientesNovosMes: toInt(row.clientes_novos_mes),
       clientesRecorrentesMes: toInt(row.clientes_recorrentes_mes),
@@ -3548,8 +3606,8 @@ export const dashboardModel = {
     return getIAAtendimentoCards(empresaId, isSuperAdmin, periodo)
   },
 
-  async getClientes({ empresaId, isSuperAdmin }) {
-    return getClientesCards(empresaId, isSuperAdmin)
+  async getClientes({ empresaId, isSuperAdmin, periodo }) {
+    return getClientesCards(empresaId, isSuperAdmin, periodo)
   },
 
   async getServicos({ empresaId, isSuperAdmin, periodo }) {
