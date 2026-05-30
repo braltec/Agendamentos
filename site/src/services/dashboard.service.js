@@ -26,14 +26,26 @@ export const dashboardService = {
   },
 
   // Buscar cards da aba Serviços
-  async getServicos() {
-    const response = await api.get('/dashboard/servicos')
+  async getServicos(dateRange) {
+    const response = await api.get('/dashboard/servicos', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
     return response.data
   },
 
   // Buscar cards da aba IA / Atendimento
-  async getIAAtendimento() {
-    const response = await api.get('/dashboard/ia-atendimento')
+  async getIAAtendimento(dateRange) {
+    const response = await api.get('/dashboard/ia-atendimento', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
     return response.data
   },
 

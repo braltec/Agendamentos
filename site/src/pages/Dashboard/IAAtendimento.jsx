@@ -319,7 +319,7 @@ function AskMissingTooltip({ active, payload, label }) {
   )
 }
 
-export default function IAAtendimento() {
+export default function IAAtendimento({ dateRange }) {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(EMPTY_DATA)
@@ -333,7 +333,7 @@ export default function IAAtendimento() {
       setErrorMessage('')
 
       try {
-        const response = await dashboardService.getIAAtendimento()
+        const response = await dashboardService.getIAAtendimento(dateRange)
         setData(response.data || EMPTY_DATA)
       } catch (error) {
         console.error('Erro ao carregar IA / Atendimento:', error)
@@ -344,7 +344,7 @@ export default function IAAtendimento() {
     }
 
     carregarDados()
-  }, [])
+  }, [dateRange])
 
   const cards = data.cards || EMPTY_DATA.cards
   const graficos = data.graficos || EMPTY_DATA.graficos

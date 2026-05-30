@@ -292,7 +292,7 @@ function serviceName(service) {
   return service?.servicosNome || 'Sem dados'
 }
 
-export default function ServicosDashboard() {
+export default function ServicosDashboard({ dateRange }) {
   const [loading, setLoading] = useState(true)
   const [servicosData, setServicosData] = useState(EMPTY_DATA)
   const [errorMessage, setErrorMessage] = useState('')
@@ -303,7 +303,7 @@ export default function ServicosDashboard() {
       setErrorMessage('')
 
       try {
-        const response = await dashboardService.getServicos()
+        const response = await dashboardService.getServicos(dateRange)
         setServicosData(response.data || EMPTY_DATA)
       } catch (error) {
         console.error('Erro ao carregar dashboard de serviços:', error)
@@ -314,7 +314,7 @@ export default function ServicosDashboard() {
     }
 
     carregarDados()
-  }, [])
+  }, [dateRange])
 
   const cards = servicosData?.cards || EMPTY_DATA.cards
   const graficos = servicosData?.graficos || EMPTY_DATA.graficos

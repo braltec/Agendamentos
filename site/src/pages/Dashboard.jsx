@@ -375,9 +375,9 @@ export default function Dashboard() {
       {activeTab === 'clientes' ? (
         <ClientesDashboard />
       ) : activeTab === 'servicos' ? (
-        <ServicosDashboard />
+        <ServicosDashboard dateRange={dateRange} />
       ) : activeTab === 'ia-atendimento' ? (
-        <IAAtendimento />
+        <IAAtendimento dateRange={dateRange} />
       ) : activeTab === 'agenda-disponibilidade' ? (
         <AgendaDisponibilidade />
       ) : (

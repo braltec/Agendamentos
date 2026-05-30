@@ -2298,13 +2298,29 @@ function montarTabelas(servicosResumo, resumo, outrasTabelas) {
   }
 }
 
-async function getServicosCards(empresaId, isSuperAdmin) {
+async function getServicosCards(empresaId, isSuperAdmin, periodo) {
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
+        ${startParam}::date AS inicio_mes,
+        ${endParam}::date AS fim_mes,
+        date_trunc('month', ${startParam}::timestamp)::date AS inicio_12_meses,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS consulta_inicio_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+    : `
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months')::date AS inicio_12_meses,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months') AT TIME ZONE '${TIMEZONE}' AS consulta_inicio_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+
   const result = await pool.query(`
     WITH periodo AS (
       SELECT
-        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
-        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
-        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') - INTERVAL '11 months')::date AS inicio_12_meses
+        ${periodoSql}
     ),
     status_classificado AS (
       SELECT
@@ -2350,8 +2366,8 @@ async function getServicosCards(empresaId, isSuperAdmin) {
       JOIN periodo p ON true
       JOIN status_classificado sc ON sc.status_agend_id = a.status_agend_id
       JOIN empresa e ON e.empresa_id = a.empresa_id
-      WHERE (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_12_meses
-        AND (a.agend_inicio AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+      WHERE a.agend_inicio >= p.consulta_inicio_ts
+        AND a.agend_inicio < p.fim_ts
         ${scopedAnd('a', isSuperAdmin)}
     ),
     itens_servico_periodo AS (
@@ -2485,7 +2501,7 @@ async function getServicosCards(empresaId, isSuperAdmin) {
         END || '/' || EXTRACT(YEAR FROM g.mes_inicio)::int AS label
       FROM generate_series(
         (SELECT inicio_12_meses FROM periodo),
-        (SELECT inicio_mes FROM periodo),
+        date_trunc('month', ((SELECT fim_mes FROM periodo) - INTERVAL '1 day'))::date,
         INTERVAL '1 month'
       ) AS g(mes_inicio)
     ),
@@ -2838,7 +2854,7 @@ async function getServicosCards(empresaId, isSuperAdmin) {
       ), '[]'::json) AS servicos_por_profissional
     FROM resumo_geral rg
     CROSS JOIN servicos_sem_movimento ssm
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   const row = result.rows[0] || {}
 
@@ -2847,6 +2863,10 @@ async function getServicosCards(empresaId, isSuperAdmin) {
       inicioMes: toDateString(row.inicio_mes),
       fimMes: toDateString(row.fim_mes),
       timezone: row.timezone || TIMEZONE,
+      preset: periodo?.preset || 'mes_atual',
+      startDate: periodo?.startDate || toDateString(row.inicio_mes),
+      endDate: periodo?.endDate || null,
+      endDateExclusive: periodo?.endDateExclusive || toDateString(row.fim_mes),
     },
     cards: {
       totalServicosMes: toInt(row.total_servicos_mes),
@@ -2875,16 +2895,30 @@ async function getServicosCards(empresaId, isSuperAdmin) {
   }
 }
 
-async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
+async function getIAAtendimentoCards(empresaId, isSuperAdmin, periodo) {
   const conversaScope = isSuperAdmin ? '' : 'AND c.empresa_id = $1'
   const eventoScope = isSuperAdmin ? '' : 'AND COALESCE(e.empresa_id, c.empresa_id) = $1'
   const mensagemScope = isSuperAdmin ? '' : 'AND COALESCE(m.empresa_id, c.empresa_id) = $1'
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
+        ${startParam}::date AS inicio_mes,
+        ${endParam}::date AS fim_mes,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+    : `
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
 
   const result = await pool.query(`
     WITH periodo AS (
       SELECT
-        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
-        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes
+        ${periodoSql}
     ),
     dias_mes AS (
       SELECT
@@ -2918,8 +2952,8 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
         (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date AS data_referencia
       FROM agente_conversa c
       JOIN periodo p ON true
-      WHERE (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
-        AND (COALESCE(c.primeira_mensagem_at, c.created_at) AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+      WHERE COALESCE(c.primeira_mensagem_at, c.created_at) >= p.inicio_ts
+        AND COALESCE(c.primeira_mensagem_at, c.created_at) < p.fim_ts
         ${conversaScope}
     ),
     eventos_periodo AS (
@@ -2935,8 +2969,8 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
       FROM agente_evento_log e
       LEFT JOIN agente_conversa c ON c.conversa_id = e.conversa_id
       JOIN periodo p ON true
-      WHERE (e.created_at AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
-        AND (e.created_at AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+      WHERE e.created_at >= p.inicio_ts
+        AND e.created_at < p.fim_ts
         ${eventoScope}
     ),
     mensagens_periodo AS (
@@ -2950,8 +2984,8 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
       FROM agente_mensagem m
       LEFT JOIN agente_conversa c ON c.conversa_id = m.conversa_id
       JOIN periodo p ON true
-      WHERE (m.created_at AT TIME ZONE '${TIMEZONE}')::date >= p.inicio_mes
-        AND (m.created_at AT TIME ZONE '${TIMEZONE}')::date < p.fim_mes
+      WHERE m.created_at >= p.inicio_ts
+        AND m.created_at < p.fim_ts
         ${mensagemScope}
     ),
     resumo_conversas AS (
@@ -3462,7 +3496,7 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
     FROM periodo p
     CROSS JOIN resumo_conversas rc
     CROSS JOIN resumo_eventos re
-  `, scopedParams(empresaId, isSuperAdmin))
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
 
   const row = result.rows[0] || {}
 
@@ -3471,6 +3505,10 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
       inicioMes: toDateString(row.inicio_mes),
       fimMes: toDateString(row.fim_mes),
       timezone: TIMEZONE,
+      preset: periodo?.preset || 'mes_atual',
+      startDate: periodo?.startDate || toDateString(row.inicio_mes),
+      endDate: periodo?.endDate || null,
+      endDateExclusive: periodo?.endDateExclusive || toDateString(row.fim_mes),
     },
     cards: {
       conversasIniciadas: toInt(row.conversas_iniciadas),
@@ -3506,16 +3544,16 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin) {
 }
 
 export const dashboardModel = {
-  async getIAAtendimento({ empresaId, isSuperAdmin }) {
-    return getIAAtendimentoCards(empresaId, isSuperAdmin)
+  async getIAAtendimento({ empresaId, isSuperAdmin, periodo }) {
+    return getIAAtendimentoCards(empresaId, isSuperAdmin, periodo)
   },
 
   async getClientes({ empresaId, isSuperAdmin }) {
     return getClientesCards(empresaId, isSuperAdmin)
   },
 
-  async getServicos({ empresaId, isSuperAdmin }) {
-    return getServicosCards(empresaId, isSuperAdmin)
+  async getServicos({ empresaId, isSuperAdmin, periodo }) {
+    return getServicosCards(empresaId, isSuperAdmin, periodo)
   },
 
   async getGestaoAgenda({ empresaId, isSuperAdmin }) {
