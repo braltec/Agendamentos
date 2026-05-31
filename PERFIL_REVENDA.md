@@ -27,8 +27,8 @@ O perfil **Revenda** foi criado para permitir que parceiros/vendedores possam ca
 ## 🔑 Credenciais de Teste
 
 ```
-📧 Email: revenda@teste.com
-🔑 Senha: revenda123
+📧 Email: revenda@exemplo.invalid
+🔑 Senha: EXEMPLO_SENHA_FORTE
 ```
 
 ---
@@ -106,8 +106,8 @@ Backend verifica:
 
 1. Acesse http://localhost:3000
 2. Faça login com:
-   - Email: `revenda@teste.com`
-   - Senha: `revenda123`
+   - Email: `revenda@exemplo.invalid`
+   - Senha: `EXEMPLO_SENHA_FORTE`
 3. Você deve ver o painel normalmente
 
 ### Teste 2: Listar Empresas (Vazio Inicialmente)
@@ -131,8 +131,8 @@ Backend verifica:
 
 1. Faça logout
 2. Faça login como Super Admin:
-   - Email: `admin@teste.com`
-   - Senha: `admin123`
+   - Email: `admin@exemplo.invalid`
+   - Senha: `EXEMPLO_SENHA_FORTE`
 3. Acesse "Empresas"
 4. **Resultado esperado**: Você vê TODAS as empresas do sistema
 

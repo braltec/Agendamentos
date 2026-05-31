@@ -5,6 +5,24 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sistema de Agendamento</title>
+    <script>
+      (function () {
+        try {
+          var preference = localStorage.getItem('tema_preferido') || 'light';
+          if (['light', 'dark', 'system'].indexOf(preference) === -1) {
+            preference = 'light';
+          }
+          var isSystem = preference === 'system';
+          var isDark = preference === 'dark'
+            || (isSystem && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.add(isDark ? 'dark' : 'light');
+          document.documentElement.dataset.themePreference = preference;
+          document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.classList.add('light');
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -14,8 +32,6 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-
-
 
 
 

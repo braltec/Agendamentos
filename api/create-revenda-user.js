@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import pg from 'pg'
 import bcrypt from 'bcrypt'
 import dotenv from 'dotenv'
@@ -5,6 +6,9 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const { Pool } = pg
+const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
+const CONFIRM_CREATE = process.env.CONFIRM_CREATE_REVENDA_USER === 'YES'
+const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION_USER_SCRIPT === 'YES'
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
@@ -14,92 +18,104 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 })
 
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Variável obrigatória ausente: ${name}`)
+  }
+  return value
+}
+
+function assertSafeExecution() {
+  if (!CONFIRM_CREATE) {
+    throw new Error('Defina CONFIRM_CREATE_REVENDA_USER=YES para executar este script')
+  }
+
+  if (process.env.NODE_ENV === 'production' && !CONFIRM_PRODUCTION) {
+    throw new Error('Execução em produção exige CONFIRM_PRODUCTION_USER_SCRIPT=YES')
+  }
+}
+
 async function createRevendaUser() {
   const client = await pool.connect()
-  
+
   try {
-    console.log('🔧 Criando usuário Revenda de teste...\n')
-    
+    assertSafeExecution()
+
+    const revendaData = {
+      login_id: process.env.REVENDA_LOGIN_ID || crypto.randomUUID(),
+      nome: requireEnv('REVENDA_NAME'),
+      email: requireEnv('REVENDA_EMAIL').toLowerCase(),
+      login: requireEnv('REVENDA_LOGIN'),
+      password: requireEnv('REVENDA_PASSWORD'),
+      nivel_acesso_id: REVENDA_ID,
+      empresa_id: requireEnv('REVENDA_EMPRESA_ID'),
+    }
+
+    if (revendaData.password.length < 12) {
+      throw new Error('REVENDA_PASSWORD deve ter pelo menos 12 caracteres')
+    }
+
+    console.log('Criando usuário revenda local')
+
     await client.query('BEGIN')
 
-    // 1. Verificar se já existe o nível Revenda
-    const checkNivel = await client.query(`
-      SELECT nivel_acesso_id 
-      FROM nivel_acesso 
-      WHERE nivel_acesso_id = '550e8400-e29b-41d4-a716-446655440020'
-    `)
-    
+    const checkNivel = await client.query(
+      `SELECT nivel_acesso_id
+       FROM nivel_acesso
+       WHERE nivel_acesso_id = $1
+       LIMIT 1`,
+      [REVENDA_ID]
+    )
+
     if (checkNivel.rows.length === 0) {
-      console.log('❌ Nível de acesso "Revenda" não encontrado!')
-      console.log('   Execute primeiro: node api/migrations/add-perfil-revenda.sql')
-      await client.query('ROLLBACK')
-      return
+      throw new Error('Nível de acesso Revenda não encontrado')
     }
-    
-    console.log('✅ Nível de acesso "Revenda" encontrado\n')
 
-    // 2. Buscar uma empresa para vincular (usaremos a primeira empresa ativa)
-    const empresaResult = await client.query(`
-      SELECT empresa_id, empresa_nome
-      FROM empresa
-      WHERE status = 'ativa'
-      LIMIT 1
-    `)
-    
+    const empresaResult = await client.query(
+      `SELECT empresa_id
+       FROM empresa
+       WHERE empresa_id = $1
+       LIMIT 1`,
+      [revendaData.empresa_id]
+    )
+
     if (empresaResult.rows.length === 0) {
-      console.log('❌ Nenhuma empresa encontrada para vincular')
-      await client.query('ROLLBACK')
-      return
-    }
-    
-    const empresa = empresaResult.rows[0]
-    console.log(`✅ Usando empresa: ${empresa.empresa_nome}`)
-    console.log(`   ID: ${empresa.empresa_id}\n`)
-
-    // 3. Credenciais do usuário Revenda
-    const revendaData = {
-      login_id: 'f0000000-0000-0000-0000-000000000001', // ID fixo para facilitar testes
-      nome: 'Revenda Teste',
-      email: 'revenda@teste.com',
-      login: 'revenda',
-      senha: 'revenda123',
-      nivel_acesso_id: '550e8400-e29b-41d4-a716-446655440020', // Revenda
-      empresa_id: empresa.empresa_id
+      throw new Error('Empresa informada em REVENDA_EMPRESA_ID não foi encontrada')
     }
 
-    // 4. Verificar se já existe usuário com este email
-    const checkUser = await client.query(`
-      SELECT login_id, email 
-      FROM login 
-      WHERE email = $1 OR login_id = $2
-    `, [revendaData.email, revendaData.login_id])
-    
+    const checkUser = await client.query(
+      `SELECT login_id
+       FROM login
+       WHERE email = $1 OR login_id = $2
+       LIMIT 1`,
+      [revendaData.email, revendaData.login_id]
+    )
+
+    const senhaHash = await bcrypt.hash(revendaData.password, 10)
+
     if (checkUser.rows.length > 0) {
-      console.log('⚠️  Usuário já existe! Atualizando senha...\n')
-      
-      const senha_hash = await bcrypt.hash(revendaData.senha, 10)
-      
       await client.query(`
-        UPDATE login 
-        SET 
+        UPDATE login
+        SET
           senha = $1,
           nivel_acesso_id = $2,
-          nome = $3
-        WHERE email = $4 OR login_id = $5
+          nome = $3,
+          login = $4,
+          empresa_id = $5
+        WHERE email = $6 OR login_id = $7
       `, [
-        senha_hash,
+        senhaHash,
         revendaData.nivel_acesso_id,
         revendaData.nome,
+        revendaData.login,
+        revendaData.empresa_id,
         revendaData.email,
-        revendaData.login_id
+        revendaData.login_id,
       ])
-      
-      console.log('✅ Usuário atualizado com sucesso!\n')
+
+      console.log('Usuário revenda atualizado com sucesso.')
     } else {
-      console.log('📝 Criando novo usuário Revenda...\n')
-      
-      const senha_hash = await bcrypt.hash(revendaData.senha, 10)
-      
       await client.query(`
         INSERT INTO login (
           login_id,
@@ -117,45 +133,18 @@ async function createRevendaUser() {
         revendaData.empresa_id,
         revendaData.login,
         revendaData.email,
-        senha_hash,
-        revendaData.nome
+        senhaHash,
+        revendaData.nome,
       ])
-      
-      console.log('✅ Usuário Revenda criado com sucesso!\n')
+
+      console.log('Usuário revenda criado com sucesso.')
     }
 
     await client.query('COMMIT')
-    
-    // Exibir credenciais
-    console.log('═══════════════════════════════════════════')
-    console.log('📋 CREDENCIAIS DO USUÁRIO REVENDA')
-    console.log('═══════════════════════════════════════════')
-    console.log('')
-    console.log(`  👤 Nome:     ${revendaData.nome}`)
-    console.log(`  📧 Email:    ${revendaData.email}`)
-    console.log(`  🔑 Senha:    ${revendaData.senha}`)
-    console.log(`  🏢 Empresa:  ${empresa.empresa_nome}`)
-    console.log(`  🆔 Login ID: ${revendaData.login_id}`)
-    console.log('')
-    console.log('═══════════════════════════════════════════')
-    console.log('')
-    console.log('🎯 PERMISSÕES:')
-    console.log('   ✅ Pode cadastrar novas empresas')
-    console.log('   ✅ Pode ver/editar empresas que cadastrou')
-    console.log('   ❌ NÃO pode ver empresas de outros')
-    console.log('   ❌ NÃO pode ver todas as empresas')
-    console.log('')
-    console.log('🧪 TESTE:')
-    console.log('   1. Faça login com as credenciais acima')
-    console.log('   2. Vá em "Empresas"')
-    console.log('   3. Cadastre uma nova empresa')
-    console.log('   4. Você verá apenas empresas que você cadastrar')
-    console.log('')
-    console.log('═══════════════════════════════════════════')
-    
+    console.log('A senha não foi exibida. Guarde-a em cofre seguro.')
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('❌ Erro ao criar usuário Revenda:', error)
+    console.error('Erro ao criar usuário revenda:', error.message)
     throw error
   } finally {
     client.release()
@@ -164,15 +153,5 @@ async function createRevendaUser() {
 }
 
 createRevendaUser()
-  .then(() => {
-    console.log('')
-    console.log('✅ Script concluído!')
-    process.exit(0)
-  })
-  .catch((error) => {
-    console.error('❌ Erro fatal:', error)
-    process.exit(1)
-  })
-
-
-
+  .then(() => process.exit(0))
+  .catch(() => process.exit(1))

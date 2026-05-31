@@ -1,6 +1,7 @@
 import { organizacaoRevendaModel } from '../models/organizacao-revenda.model.js'
 import bcrypt from 'bcrypt'
 import pool from '../config/database.js'
+import { logger } from '../utils/logger.js'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
@@ -22,7 +23,7 @@ export async function listarOrganizacoes(req, res) {
       data: organizacoes
     })
   } catch (error) {
-    console.error('Erro ao listar organizações:', error)
+    logger.error('Erro ao listar organizações', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao listar organizações'
@@ -61,7 +62,7 @@ export async function buscarOrganizacao(req, res) {
       data: organizacao
     })
   } catch (error) {
-    console.error('Erro ao buscar organização:', error)
+    logger.error('Erro ao buscar organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar organização'
@@ -87,7 +88,7 @@ export async function criarOrganizacao(req, res) {
       message: 'Organização criada com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao criar organização:', error)
+    logger.error('Erro ao criar organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao criar organização'
@@ -122,7 +123,7 @@ export async function atualizarOrganizacao(req, res) {
       message: 'Organização atualizada com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar organização:', error)
+    logger.error('Erro ao atualizar organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao atualizar organização'
@@ -158,7 +159,7 @@ export async function alterarStatusOrganizacao(req, res) {
       message: `Organização ${status === 'ativa' ? 'ativada' : 'desativada'} com sucesso!`
     })
   } catch (error) {
-    console.error('Erro ao alterar status:', error)
+    logger.error('Erro ao alterar status da organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao alterar status da organização'
@@ -189,7 +190,7 @@ export async function listarUsuariosOrganizacao(req, res) {
       data: usuarios
     })
   } catch (error) {
-    console.error('Erro ao listar usuários:', error)
+    logger.error('Erro ao listar usuários da organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao listar usuários da organização'
@@ -220,7 +221,7 @@ export async function listarEmpresasOrganizacao(req, res) {
       data: empresas
     })
   } catch (error) {
-    console.error('Erro ao listar empresas:', error)
+    logger.error('Erro ao listar empresas da organização', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao listar empresas da organização'
@@ -310,7 +311,7 @@ export async function criarVendedor(req, res) {
       message: `${is_gestor_revenda ? 'Gestor' : 'Vendedor'} criado com sucesso!`
     })
   } catch (error) {
-    console.error('Erro ao criar vendedor:', error)
+    logger.error('Erro ao criar vendedor', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao criar vendedor'
@@ -365,7 +366,7 @@ export async function atualizarVendedor(req, res) {
       message: 'Vendedor atualizado com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar vendedor:', error)
+    logger.error('Erro ao atualizar vendedor', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao atualizar vendedor'
@@ -420,11 +421,10 @@ export async function removerVendedor(req, res) {
       message: 'Vendedor removido com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao remover vendedor:', error)
+    logger.error('Erro ao remover vendedor', { error, userId: req.user?.login_id })
     res.status(500).json({
       success: false,
       message: 'Erro ao remover vendedor'
     })
   }
 }
-

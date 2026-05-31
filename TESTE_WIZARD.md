@@ -20,9 +20,9 @@ npm run dev
 
 ### 2. Faça login e pegue o token:
 
-**URL:** http://localhost:3000  
-**Email:** admin@teste.com  
-**Senha:** admin123
+**URL:** http://localhost:3000
+**Email:** admin@exemplo.invalid
+**Senha:** EXEMPLO_SENHA_FORTE
 
 Após o login, abra o DevTools (F12) → Console e digite:
 ```javascript
@@ -339,7 +339,6 @@ WHERE p.empresa_id = 'SEU_EMPRESA_ID';
 ---
 
 **Pronto para testar!** 🚀
-
 
 
 

@@ -16,12 +16,23 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Fazer login e pegar token
-echo -e "${YELLOW}🔐 Fazendo login...${NC}"
-LOGIN_RESPONSE=$(curl -s -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@teste.com", "password": "admin123"}')
+API_BASE_URL="${API_BASE_URL:-http://localhost:5000}"
+TOKEN="${TEST_WIZARD_TOKEN:-}"
 
-TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*"' | sed 's/"token":"\(.*\)"/\1/')
+if [ -z "$TOKEN" ]; then
+  if [ -z "$TEST_WIZARD_EMAIL" ] || [ -z "$TEST_WIZARD_PASSWORD" ]; then
+    echo -e "${RED}❌ Informe TEST_WIZARD_TOKEN ou TEST_WIZARD_EMAIL e TEST_WIZARD_PASSWORD.${NC}"
+    exit 1
+  fi
+
+  echo -e "${YELLOW}🔐 Fazendo login com credenciais informadas por variável de ambiente...${NC}"
+  LOGIN_PAYLOAD=$(printf '{"email":"%s","password":"%s"}' "$TEST_WIZARD_EMAIL" "$TEST_WIZARD_PASSWORD")
+  LOGIN_RESPONSE=$(curl -s -X POST "$API_BASE_URL/api/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "$LOGIN_PAYLOAD")
+
+  TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*"' | sed 's/"token":"\(.*\)"/\1/')
+fi
 
 if [ -z "$TOKEN" ]; then
   echo -e "${RED}❌ Erro ao fazer login!${NC}"
@@ -38,11 +49,11 @@ api_call() {
   local data=$3
   
   if [ -z "$data" ]; then
-    curl -s -X $method "http://localhost:5000/api/wizard/$endpoint" \
+    curl -s -X $method "$API_BASE_URL/api/wizard/$endpoint" \
       -H "Authorization: Bearer $TOKEN" \
       -H "Content-Type: application/json"
   else
-    curl -s -X $method "http://localhost:5000/api/wizard/$endpoint" \
+    curl -s -X $method "$API_BASE_URL/api/wizard/$endpoint" \
       -H "Authorization: Bearer $TOKEN" \
       -H "Content-Type: application/json" \
       -d "$data"
@@ -108,7 +119,7 @@ echo ""
 
 PROF_DATA='{
   "nome": "Dr. João Silva",
-  "contato": "(11) 98765-4321",
+  "contato": "EXEMPLO_TELEFONE",
   "especialidade": "Dermatologia"
 }'
 
@@ -216,7 +227,6 @@ echo -e "${GREEN}║              ✅ TODOS OS TESTES CONCLUÍDOS!              
 echo -e "${GREEN}║                                                                  ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-
 
 
 

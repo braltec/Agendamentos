@@ -1,6 +1,7 @@
 import { verifyToken } from '../config/jwt.js'
+import { assertAuthenticatedUserAccess, sendAuthAccessError } from '../utils/authAccess.js'
 
-export function authMiddleware(req, res, next) {
+export async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization
 
@@ -26,12 +27,15 @@ export function authMiddleware(req, res, next) {
       ...decoded,
       login_id: decoded.user_id || decoded.login_id
     }
+
+    await assertAuthenticatedUserAccess(req.user)
     next()
   } catch (error) {
+    if (sendAuthAccessError(res, error)) return
+
     return res.status(401).json({ message: 'Erro na autenticação' })
   }
 }
-
 
 
 

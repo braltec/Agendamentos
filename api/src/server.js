@@ -1,5 +1,6 @@
 import app from './app.js'
 import pool from './config/database.js'
+import { logger } from './utils/logger.js'
 
 const PORT = process.env.PORT || 5000
 
@@ -8,22 +9,19 @@ async function startServer() {
   try {
     // Testar conexão
     await pool.query('SELECT NOW()')
-    console.log('✅ Banco de dados conectado com sucesso')
+    logger.info('Banco de dados conectado com sucesso')
 
     // Iniciar servidor
     app.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`)
-      console.log(`📍 http://localhost:${PORT}`)
-      console.log(`🏥 Health check: http://localhost:${PORT}/health`)
+      logger.info('Servidor iniciado', { port: PORT })
     })
   } catch (error) {
-    console.error('❌ Erro ao iniciar servidor:', error)
+    logger.error('Erro ao iniciar servidor', { error })
     process.exit(1)
   }
 }
 
 startServer()
-
 
 
 

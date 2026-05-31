@@ -176,7 +176,7 @@ Cria novo vendedor na organização.
   "nome": "Pedro Costa",
   "login": "pedro.costa",
   "email": "pedro@example.com",
-  "senha": "senha123",
+  "senha": "EXEMPLO_SENHA_FORTE",
   "is_gestor_revenda": false
 }
 ```
@@ -265,7 +265,7 @@ POST /api/organizacoes/{org_id}/vendedores
   "nome": "João Silva",
   "login": "joao.silva",
   "email": "joao@revenda.com",
-  "senha": "senha123",
+  "senha": "EXEMPLO_SENHA_FORTE",
   "is_gestor_revenda": true
 }
 ```
@@ -281,7 +281,7 @@ POST /api/organizacoes/{sua_org_id}/vendedores
   "nome": "Maria Santos",
   "login": "maria.santos",
   "email": "maria@revenda.com",
-  "senha": "senha123",
+  "senha": "EXEMPLO_SENHA_FORTE",
   "is_gestor_revenda": false
 }
 ```

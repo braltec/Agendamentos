@@ -4,7 +4,7 @@ import Header from './Header'
 
 export default function MainLayout() {
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
       {/* Sidebar */}
       <Sidebar />
 
@@ -21,7 +21,6 @@ export default function MainLayout() {
     </div>
   )
 }
-
 
 
 

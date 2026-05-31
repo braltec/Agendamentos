@@ -1,21 +1,123 @@
 import pool from '../config/database.js'
+import { isEmpresaStatusActive } from '../utils/authAccess.js'
+
+const USUARIO_UPDATE_COLUMNS = {
+  nome: 'nome',
+  login: 'login',
+  email: 'email',
+  nivel_acesso_id: 'nivel_acesso_id',
+}
+
+async function assertHorarioFExclusiveToEmpresa(client, horarioFId, empresaId) {
+  const result = await client.query(`
+    SELECT DISTINCT p.empresa_id
+    FROM profissional_horario ph
+    JOIN profissional p ON p.profissional_id = ph.profissional_id
+    WHERE ph.horario_f_id = $1
+  `, [horarioFId])
+
+  const otherEmpresa = result.rows.find(row => String(row.empresa_id) !== String(empresaId))
+  if (otherEmpresa) {
+    throw new Error('Horário compartilhado com outra empresa não pode ser alterado')
+  }
+}
 
 export const wizardModel = {
+  // Status completo usado pelo frontend para decidir se o setup inicial deve abrir.
+  // "completed" continua representando o wizard completo; "requiresSetup" só deve
+  // acionar o wizard quando o tenant estiver realmente sem configuração inicial.
+  async getWizardStatus(empresaId) {
+    if (!empresaId) {
+      return {
+        completed: false,
+        requiresSetup: false,
+        accessState: 'usuario_sem_empresa',
+        empresaExiste: false,
+        configuracaoExiste: false,
+        empresaAtiva: false,
+        empresaStatus: null,
+        profissionais: 0,
+        vinculos: 0,
+        horariosVinculados: 0,
+      }
+    }
+
+    const result = await pool.query(`
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM empresa
+          WHERE empresa_id = $1
+        ) AS empresa_existe,
+        (
+          SELECT COALESCE(status, 'ativa')
+          FROM empresa
+          WHERE empresa_id = $1
+          LIMIT 1
+        ) AS empresa_status,
+        EXISTS (
+          SELECT 1
+          FROM empresa
+          WHERE empresa_id = $1
+            AND empresa_cfg_id IS NOT NULL
+        ) AS configuracao_existe,
+        (
+          SELECT COUNT(*)::int
+          FROM profissional
+          WHERE empresa_id = $1
+            AND COALESCE(status, 'ativo') <> 'inativo'
+        ) AS profissionais,
+        (
+          SELECT COUNT(*)::int
+          FROM profissional_servico ps
+          JOIN profissional p ON ps.profissional_id = p.profissional_id
+          WHERE p.empresa_id = $1
+            AND COALESCE(p.status, 'ativo') <> 'inativo'
+        ) AS vinculos,
+        (
+          SELECT COUNT(*)::int
+          FROM profissional_horario ph
+          JOIN profissional p ON ph.profissional_id = p.profissional_id
+          WHERE p.empresa_id = $1
+            AND COALESCE(p.status, 'ativo') <> 'inativo'
+        ) AS horarios_vinculados
+    `, [empresaId])
+
+    const data = result.rows[0] || {}
+    const profissionais = Number(data.profissionais || 0)
+    const vinculos = Number(data.vinculos || 0)
+    const horariosVinculados = Number(data.horarios_vinculados || 0)
+    const empresaExiste = Boolean(data.empresa_existe)
+    const configuracaoExiste = Boolean(data.configuracao_existe)
+    const empresaStatus = data.empresa_status || null
+    const empresaAtiva = empresaExiste && isEmpresaStatusActive(empresaStatus)
+    const hasAnySetup = profissionais > 0 || vinculos > 0 || horariosVinculados > 0
+    const requiresSetup = empresaAtiva && (!configuracaoExiste || !hasAnySetup)
+
+    return {
+      completed: profissionais > 0 && vinculos > 0 && horariosVinculados > 0,
+      requiresSetup,
+      accessState: !empresaExiste
+        ? 'empresa_inexistente'
+        : !empresaAtiva
+          ? 'empresa_inativa'
+          : requiresSetup
+            ? 'setup_inicial'
+            : 'empresa_ativa',
+      empresaExiste,
+      configuracaoExiste,
+      empresaAtiva,
+      empresaStatus,
+      profissionais,
+      vinculos,
+      horariosVinculados,
+    }
+  },
+
   // Verificar se a empresa já completou o wizard
   async checkWizardCompleted(empresaId) {
-    const result = await pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM profissional WHERE empresa_id = $1) as profissionais,
-        (SELECT COUNT(*) FROM profissional_servico ps 
-         JOIN profissional p ON ps.profissional_id = p.profissional_id 
-         WHERE p.empresa_id = $1) as vinculos,
-        (SELECT COUNT(*) FROM profissional_horario ph
-         JOIN profissional p ON ph.profissional_id = p.profissional_id
-         WHERE p.empresa_id = $1) as horarios_vinculados
-    `, [empresaId])
-    
-    const data = result.rows[0]
-    return data.profissionais > 0 && data.vinculos > 0 && data.horarios_vinculados > 0
+    const status = await this.getWizardStatus(empresaId)
+    return status.completed
   },
 
   // Salvar horários de funcionamento
@@ -192,11 +294,6 @@ export const wizardModel = {
 
   // Atualizar instância WhatsApp (UPSERT)
   async updateInstancia(empresaId, instanciaData) {
-    console.log('🔍 updateInstancia MODEL - Dados recebidos:', {
-      empresaId,
-      instanciaData
-    })
-    
     // Sempre verificar se a empresa JÁ tem uma instância
     const existenteEmpresa = await pool.query(`
       SELECT * FROM instancia 
@@ -207,14 +304,10 @@ export const wizardModel = {
     
     if (existenteEmpresa.rows.length > 0) {
       const instanciaAtual = existenteEmpresa.rows[0]
-      console.log('♻️ Empresa já tem instância')
-      console.log('   ID atual:', instanciaAtual.instancia_id)
-      console.log('   ID novo:', instanciaData.instancia_id)
       
       // Verificar se o UUID mudou
       if (instanciaAtual.instancia_id === instanciaData.instancia_id) {
         // UUID não mudou, apenas atualizar nome e observação
-        console.log('   UUID não mudou, atualizando apenas nome/observação')
         const result = await pool.query(`
           UPDATE instancia 
           SET 
@@ -228,17 +321,13 @@ export const wizardModel = {
           instanciaData.observacao || '',
           empresaId
         ])
-        console.log('✅ UPDATE realizado')
         return result.rows[0]
       } else {
         // UUID mudou, deletar instâncias antigas e criar nova
-        console.log('   UUID mudou, deletando instâncias antigas e criando nova')
-        
         // Deletar TODAS as instâncias antigas da empresa
         await pool.query(`
           DELETE FROM instancia WHERE empresa_id = $1
         `, [empresaId])
-        console.log('   🗑️ Instâncias antigas deletadas')
         
         // Criar nova instância com o novo UUID
         const result = await pool.query(`
@@ -255,13 +344,10 @@ export const wizardModel = {
           instanciaData.nome,
           instanciaData.observacao || ''
         ])
-        console.log('✅ Nova instância criada')
         return result.rows[0]
       }
     } else {
       // EMPRESA NÃO TEM INSTÂNCIA: criar nova
-      console.log('➕ Empresa não tem instância, criando nova')
-      
       const result = await pool.query(`
         INSERT INTO instancia (
           instancia_id,
@@ -277,7 +363,6 @@ export const wizardModel = {
         instanciaData.observacao || ''
       ])
       
-      console.log('✅ INSERT realizado')
       return result.rows[0]
     }
   },
@@ -392,9 +477,6 @@ export const wizardModel = {
 
   // Atualizar dados da empresa
   async updateEmpresaData(empresaId, data) {
-    console.log('📝 updateEmpresaData - Dados recebidos:', JSON.stringify(data, null, 2))
-    console.log('📝 empresaId:', empresaId)
-    
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -443,10 +525,7 @@ export const wizardModel = {
       ])
 
       await client.query('COMMIT')
-      console.log('✅ Empresa atualizada com sucesso!')
     } catch (error) {
-      console.error('❌ Erro ao atualizar empresa:', error.message)
-      console.error('Stack:', error.stack)
       await client.query('ROLLBACK')
       throw error
     } finally {
@@ -455,7 +534,7 @@ export const wizardModel = {
   },
 
   // Atualizar dados do serviço
-  async updateServicoData(servicoId, data) {
+  async updateServicoData(servicoId, data, empresaId = null) {
     const client = await pool.connect()
     try {
       await client.query('BEGIN')
@@ -474,16 +553,6 @@ export const wizardModel = {
         valorFinal = parseFloat(valorString) || 0
       }
 
-      console.log('🔧 updateServicoData - Dados para atualizar:', {
-        servicoId,
-        servicos_nome: data.servicos_nome || data.nome,
-        servicos_valor_original: data.servicos_valor,
-        servicos_valor_formatado: data.servicos_valor_formatado,
-        valorFinal,
-        duracaoInterval,
-        profissionais_ids: data.profissionais_ids
-      })
-
       // Atualizar dados do serviço
       const updateResult = await client.query(`
         UPDATE servicos
@@ -500,16 +569,16 @@ export const wizardModel = {
         servicoId
       ])
 
-      console.log('✅ Serviço atualizado:', updateResult.rows[0])
-
       // Se profissionais_ids foi fornecido, atualizar vinculações
       if (data.profissionais_ids && Array.isArray(data.profissionais_ids)) {
         // Buscar vinculações existentes
         const existingLinks = await client.query(`
-          SELECT profissional_id 
-          FROM profissional_servico
-          WHERE servicos_id = $1
-        `, [servicoId])
+          SELECT ps.profissional_id
+          FROM profissional_servico ps
+          JOIN profissional p ON p.profissional_id = ps.profissional_id
+          WHERE ps.servicos_id = $1
+            AND ($2::uuid IS NULL OR p.empresa_id = $2)
+        `, [servicoId, empresaId])
         
         const existingIds = existingLinks.rows.map(row => row.profissional_id)
         const newIds = data.profissionais_ids
@@ -544,10 +613,6 @@ export const wizardModel = {
               DELETE FROM profissional_servico
               WHERE servicos_id = $1 AND profissional_id = $2
             `, [servicoId, profissionalId])
-            console.log(`✅ Vínculo removido: serviço ${servicoId} - profissional ${profissionalId}`)
-          } else {
-            // Há agendamentos, manter o vínculo
-            console.log(`⚠️  Vínculo mantido (há agendamentos): serviço ${servicoId} - profissional ${profissionalId}`)
           }
         }
       }
@@ -646,6 +711,8 @@ export const wizardModel = {
         `, [horarioFId, empresaId])
       }
 
+      await assertHorarioFExclusiveToEmpresa(client, horarioFId, empresaId)
+
       // 2. Buscar horários existentes no banco
       const horariosExistentes = await client.query(`
         SELECT horario_det_id, horario_def, horario_det_inicio, horario_det_fim
@@ -663,14 +730,11 @@ export const wizardModel = {
       const diasNomes = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
       const horariosProcessados = new Set()
       
-      console.log('📅 Horários recebidos para processar:', JSON.stringify(horarios, null, 2))
-      
       for (const horario of horarios) {
         if (horario.horario_det_inicio && horario.horario_det_fim) {
           
           if (horario.horario_det_id && horariosExistentesMap.has(horario.horario_det_id)) {
             // Horário já existe, fazer UPDATE
-            console.log(`📅 Atualizando horário existente: ID ${horario.horario_det_id}`)
             await client.query(`
               UPDATE horario_det
               SET horario_det_inicio = $1,
@@ -686,7 +750,6 @@ export const wizardModel = {
             horariosProcessados.add(horario.horario_det_id)
           } else {
             // Horário novo, fazer INSERT
-            console.log(`📅 Inserindo novo horário: Dia ${horario.horario_def} - ${horario.horario_det_inicio} às ${horario.horario_det_fim}`)
             await client.query(`
               INSERT INTO horario_det (
                 horario_f_id,
@@ -709,7 +772,6 @@ export const wizardModel = {
       // 4. Deletar horários que não estão mais presentes
       for (const [horarioDetId, horarioExistente] of horariosExistentesMap.entries()) {
         if (!horariosProcessados.has(horarioDetId)) {
-          console.log(`📅 Deletando horário removido: ID ${horarioDetId}`)
           await client.query(`
             DELETE FROM horario_det WHERE horario_det_id = $1
           `, [horarioDetId])
@@ -717,9 +779,7 @@ export const wizardModel = {
       }
 
       await client.query('COMMIT')
-      console.log('✅ Horários atualizados com sucesso!')
     } catch (error) {
-      console.error('❌ Erro ao atualizar horários:', error.message)
       await client.query('ROLLBACK')
       throw error
     } finally {
@@ -883,22 +943,23 @@ export const wizardModel = {
 
   // Atualizar usuário
   async updateUsuario(loginId, userData) {
+    const entries = Object.entries(USUARIO_UPDATE_COLUMNS)
+      .filter(([field]) => Object.prototype.hasOwnProperty.call(userData || {}, field))
+
+    if (entries.length === 0) {
+      return null
+    }
+
+    const setClauses = entries.map(([, column], index) => `${column} = $${index + 1}`)
+    const values = entries.map(([field]) => userData[field])
+    values.push(loginId)
+
     const result = await pool.query(`
       UPDATE login
-      SET
-        nome = $1,
-        login = $2,
-        email = $3,
-        nivel_acesso_id = $4
-      WHERE login_id = $5
+      SET ${setClauses.join(', ')}
+      WHERE login_id = $${values.length}
       RETURNING login_id, nome, login, email, nivel_acesso_id, created
-    `, [
-      userData.nome,
-      userData.login,
-      userData.email,
-      userData.nivel_acesso_id,
-      loginId
-    ])
+    `, values)
     return result.rows[0]
   },
 
@@ -919,4 +980,3 @@ export const wizardModel = {
     `, [loginId])
   }
 }
-

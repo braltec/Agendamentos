@@ -1,6 +1,11 @@
 import bcrypt from 'bcrypt'
 import { empresaModel } from '../models/empresa.model.js'
 import pool from '../config/database.js'
+import {
+  requireEmpresaAccess,
+  sendAuthorizationError,
+} from '../utils/authorization.js'
+import { logger } from '../utils/logger.js'
 
 // Listar empresas agrupadas por revenda (apenas para Super Admin)
 export async function listarEmpresasPorRevenda(req, res) {
@@ -79,7 +84,7 @@ export async function listarEmpresasPorRevenda(req, res) {
       }
     })
   } catch (error) {
-    console.error('Erro ao listar empresas por revenda:', error)
+    logger.error('Erro ao listar empresas por revenda', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao listar empresas por revenda' 
@@ -100,44 +105,34 @@ export async function listarEmpresas(req, res) {
     const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
     const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
     
-    // Log para debug
-    console.log('🔍 DEBUG - Listar Empresas:')
-    console.log(`   User Login ID: ${userLoginId}`)
-    console.log(`   User Empresa ID: ${userEmpresaId}`)
-    console.log(`   User Nivel Acesso ID: ${userNivelAcessoId}`)
-    console.log(`   User Org Revenda ID: ${userOrgRevendaId}`)
-    console.log(`   User Is Gestor Revenda: ${userIsGestorRevenda}`)
-    console.log(`   É Super Admin? ${userNivelAcessoId === SUPER_ADMIN_ID}`)
-    console.log(`   É Revenda? ${userNivelAcessoId === REVENDA_ID}`)
-    
     // Definir quais empresas o usuário pode ver
     let empresas
     if (userNivelAcessoId === SUPER_ADMIN_ID) {
       // Super Admin vê todas
-      console.log('   ✅ Listando TODAS as empresas (Super Admin)')
       empresas = await empresaModel.findAll()
     } else if (userNivelAcessoId === REVENDA_ID && userIsGestorRevenda && userOrgRevendaId) {
       // Gestor de Revenda vê todas da organização
-      console.log('   🏢 Listando empresas da organização (Gestor Revenda)')
       empresas = await empresaModel.findByOrganizacao(userOrgRevendaId)
     } else if (userNivelAcessoId === REVENDA_ID) {
       // Vendedor de Revenda vê apenas as suas
-      console.log('   👤 Listando apenas empresas cadastradas por este usuário (Vendedor)')
       empresas = await empresaModel.findByCreator(userLoginId)
     } else {
       // Admin de Empresa vê apenas sua empresa
-      console.log('   ℹ️  Listando apenas empresa do usuário')
       empresas = await empresaModel.findByEmpresaId(userEmpresaId)
     }
     
-    console.log(`   Total de empresas retornadas: ${empresas.length}`)
+    logger.info('Empresas listadas', {
+      actorLoginId: userLoginId,
+      actorEmpresaId: userEmpresaId,
+      total: empresas.length,
+    })
     
     res.json({
       success: true,
       data: empresas
     })
   } catch (error) {
-    console.error('Erro ao listar empresas:', error)
+    logger.error('Erro ao listar empresas', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao listar empresas' 
@@ -149,6 +144,8 @@ export async function listarEmpresas(req, res) {
 export async function buscarEmpresa(req, res) {
   try {
     const { id } = req.params
+    await requireEmpresaAccess(req.user, id)
+
     const empresa = await empresaModel.findById(id)
     
     if (!empresa) {
@@ -163,7 +160,9 @@ export async function buscarEmpresa(req, res) {
       data: empresa
     })
   } catch (error) {
-    console.error('Erro ao buscar empresa:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao buscar empresa', { error, empresaId: id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar empresa' 
@@ -267,11 +266,10 @@ export async function criarEmpresa(req, res) {
       }
     })
   } catch (error) {
-    console.error('Erro ao criar empresa:', error)
+    logger.error('Erro ao criar empresa', { error, actorLoginId: req.user?.login_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao criar empresa',
-      error: error.message 
+      message: 'Erro ao criar empresa'
     })
   }
 }
@@ -281,6 +279,7 @@ export async function atualizarEmpresa(req, res) {
   try {
     const { id } = req.params
     const empresaData = req.body
+    await requireEmpresaAccess(req.user, id)
 
     const empresa = await empresaModel.update(id, empresaData)
     
@@ -297,7 +296,9 @@ export async function atualizarEmpresa(req, res) {
       data: empresa
     })
   } catch (error) {
-    console.error('Erro ao atualizar empresa:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar empresa', { error, empresaId: id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar empresa' 
@@ -310,6 +311,7 @@ export async function alterarStatusEmpresa(req, res) {
   try {
     const { id } = req.params
     const { status } = req.body
+    await requireEmpresaAccess(req.user, id)
 
     if (!['ativa', 'inativa'].includes(status)) {
       return res.status(400).json({ 
@@ -333,11 +335,12 @@ export async function alterarStatusEmpresa(req, res) {
       data: empresa
     })
   } catch (error) {
-    console.error('Erro ao alterar status da empresa:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao alterar status da empresa', { error, empresaId: id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao alterar status da empresa' 
     })
   }
 }
-

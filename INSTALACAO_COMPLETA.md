@@ -143,7 +143,7 @@ INSERT INTO login (
   '<nivel_acesso_id>',
   '<empresa_id>',
   'admin',
-  'admin@teste.com',
+  'admin@exemplo.invalid',
   '$2b$10$YourHashedPasswordHere', -- Use bcrypt para gerar
   'Administrador'
 );
@@ -155,7 +155,7 @@ INSERT INTO login (
 // Criar arquivo: api/generate-password.js
 import bcrypt from 'bcrypt'
 
-const password = 'admin123'
+const password = 'EXEMPLO_SENHA_FORTE'
 const hash = await bcrypt.hash(password, 10)
 console.log('Hash:', hash)
 ```

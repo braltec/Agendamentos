@@ -14,15 +14,40 @@ import organizacaoRevendaRoutes from './routes/organizacao-revenda.routes.js'
 dotenv.config()
 
 const app = express()
+const isProduction = process.env.NODE_ENV === 'production'
+const defaultCorsOrigin = isProduction ? '' : 'http://localhost:3000'
+const corsOrigins = (process.env.CORS_ORIGIN || defaultCorsOrigin)
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean)
+const bodyLimit = process.env.BODY_LIMIT || '1mb'
+
+if (isProduction && corsOrigins.length === 0) {
+  throw new Error('CORS_ORIGIN obrigatório em produção')
+}
+
+if (process.env.TRUST_PROXY) {
+  const trustProxy = Number.isNaN(Number(process.env.TRUST_PROXY))
+    ? process.env.TRUST_PROXY
+    : Number(process.env.TRUST_PROXY)
+  app.set('trust proxy', trustProxy)
+}
 
 // Middlewares globais
 app.use(helmet())
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin(origin, callback) {
+    if (!origin || corsOrigins.includes(origin)) {
+      callback(null, true)
+      return
+    }
+
+    callback(new Error('Origem não permitida pelo CORS'))
+  },
   credentials: true,
 }))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: bodyLimit }))
+app.use(express.urlencoded({ extended: true, limit: bodyLimit }))
 
 // Rota de health check
 app.get('/health', (req, res) => {
@@ -40,4 +65,3 @@ app.use('/api/organizacoes', organizacaoRevendaRoutes)
 app.use(errorMiddleware)
 
 export default app
-

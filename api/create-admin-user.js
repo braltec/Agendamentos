@@ -1,65 +1,88 @@
 import bcrypt from 'bcrypt'
 import pool from './src/config/database.js'
 
+const CONFIRM_CREATE = process.env.CONFIRM_CREATE_ADMIN_USER === 'YES'
+const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION_USER_SCRIPT === 'YES'
+
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Variável obrigatória ausente: ${name}`)
+  }
+  return value
+}
+
+function assertSafeExecution() {
+  if (!CONFIRM_CREATE) {
+    throw new Error('Defina CONFIRM_CREATE_ADMIN_USER=YES para executar este script')
+  }
+
+  if (process.env.NODE_ENV === 'production' && !CONFIRM_PRODUCTION) {
+    throw new Error('Execução em produção exige CONFIRM_PRODUCTION_USER_SCRIPT=YES')
+  }
+}
+
 async function createAdminUser() {
   try {
-    console.log('🔍 Criando usuário administrador...\n')
+    assertSafeExecution()
 
-    // 1. Buscar primeira empresa
-    const empresaResult = await pool.query(`
-      SELECT empresa_id, empresa_nome 
-      FROM empresa 
-      LIMIT 1
-    `)
+    const adminData = {
+      empresa_id: requireEnv('ADMIN_EMPRESA_ID'),
+      email: requireEnv('ADMIN_EMAIL').toLowerCase(),
+      password: requireEnv('ADMIN_PASSWORD'),
+      login: requireEnv('ADMIN_LOGIN'),
+      nome: requireEnv('ADMIN_NAME'),
+      nivel_acesso_id: process.env.ADMIN_NIVEL_ACESSO_ID || null,
+    }
+
+    if (adminData.password.length < 12) {
+      throw new Error('ADMIN_PASSWORD deve ter pelo menos 12 caracteres')
+    }
+
+    console.log('Criando usuário administrador local')
+
+    const empresaResult = await pool.query(
+      `SELECT empresa_id
+       FROM empresa
+       WHERE empresa_id = $1
+       LIMIT 1`,
+      [adminData.empresa_id]
+    )
 
     if (empresaResult.rows.length === 0) {
-      console.error('❌ Nenhuma empresa encontrada no banco!')
-      process.exit(1)
+      throw new Error('Empresa informada em ADMIN_EMPRESA_ID não foi encontrada')
     }
 
-    const empresa = empresaResult.rows[0]
-    console.log(`✅ Empresa encontrada: ${empresa.empresa_nome}`)
+    let nivelAcessoId = adminData.nivel_acesso_id
 
-    // 2. Buscar nível de acesso (administrador)
-    const nivelResult = await pool.query(`
-      SELECT nivel_acesso_id, nivel_acesso_ 
-      FROM nivel_acesso 
-      WHERE LOWER(nivel_acesso_) LIKE '%admin%'
-      LIMIT 1
-    `)
-
-    let nivelAcessoId
-    if (nivelResult.rows.length === 0) {
-      // Se não existir, pegar o primeiro
-      const firstNivel = await pool.query(`
-        SELECT nivel_acesso_id, nivel_acesso_ 
-        FROM nivel_acesso 
+    if (!nivelAcessoId) {
+      const nivelResult = await pool.query(`
+        SELECT nivel_acesso_id
+        FROM nivel_acesso
+        WHERE LOWER(nivel_acesso_) LIKE '%admin%'
         LIMIT 1
       `)
-      nivelAcessoId = firstNivel.rows[0].nivel_acesso_id
-      console.log(`✅ Nível de acesso: ${firstNivel.rows[0].nivel_acesso_}`)
-    } else {
+
+      if (nivelResult.rows.length === 0) {
+        throw new Error('Nível de acesso administrador não encontrado')
+      }
+
       nivelAcessoId = nivelResult.rows[0].nivel_acesso_id
-      console.log(`✅ Nível de acesso: ${nivelResult.rows[0].nivel_acesso_}`)
     }
 
-    // 3. Verificar se usuário já existe
-    const existingUser = await pool.query(`
-      SELECT email FROM login WHERE email = 'admin@teste.com'
-    `)
+    const existingUser = await pool.query(
+      `SELECT login_id FROM login WHERE email = $1 LIMIT 1`,
+      [adminData.email]
+    )
 
     if (existingUser.rows.length > 0) {
-      console.log('\n⚠️  Usuário admin@teste.com já existe!')
-      console.log('💡 Use este email para fazer login\n')
+      console.log('Usuário já existe. Nenhuma alteração foi feita.')
       await pool.end()
       process.exit(0)
     }
 
-    // 4. Gerar hash da senha
-    const password = 'admin123'
-    const hash = await bcrypt.hash(password, 10)
+    const hash = await bcrypt.hash(adminData.password, 10)
 
-    // 5. Criar usuário
     await pool.query(`
       INSERT INTO login (
         login_id,
@@ -73,34 +96,30 @@ async function createAdminUser() {
         gen_random_uuid(),
         $1,
         $2,
-        'admin',
-        'admin@teste.com',
         $3,
-        'Administrador'
+        $4,
+        $5,
+        $6
       )
-    `, [nivelAcessoId, empresa.empresa_id, hash])
+    `, [
+      nivelAcessoId,
+      adminData.empresa_id,
+      adminData.login,
+      adminData.email,
+      hash,
+      adminData.nome,
+    ])
 
-    console.log('\n✅ Usuário criado com sucesso!')
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    console.log('📧 Email: admin@teste.com')
-    console.log('🔑 Senha: admin123')
-    console.log('🏢 Empresa:', empresa.empresa_nome)
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n')
+    console.log('Usuário administrador criado com sucesso.')
+    console.log('A senha não foi exibida. Guarde-a em cofre seguro.')
 
     await pool.end()
     process.exit(0)
   } catch (error) {
-    console.error('❌ Erro ao criar usuário:', error.message)
+    console.error('Erro ao criar usuário administrador:', error.message)
+    await pool.end()
     process.exit(1)
   }
 }
 
 createAdminUser()
-
-
-
-
-
-
-
-

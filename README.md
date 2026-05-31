@@ -97,7 +97,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=agendamento
 DB_USER=postgres
-DB_PASSWORD=sua_senha
+DB_PASSWORD=EXEMPLO_DB_PASSWORD
 JWT_SECRET=sua_chave_secreta
 JWT_EXPIRES_IN=24h
 CORS_ORIGIN=http://localhost:3000
@@ -127,7 +127,7 @@ POST /api/auth/login
 ```json
 {
   "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token": "EXEMPLO_JWT_TOKEN",
   "user": {
     "id": "uuid",
     "nome": "Nome do Usuário",

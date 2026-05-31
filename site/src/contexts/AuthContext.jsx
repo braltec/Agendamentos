@@ -6,27 +6,50 @@ const AuthContext = createContext({})
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState('')
 
   useEffect(() => {
-    // Verificar se há token salvo ao carregar a aplicação
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
+    let isMounted = true
 
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData))
-      } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error)
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+    const carregarUsuario = async () => {
+      // Verificar se há token salvo ao carregar a aplicação
+      const token = localStorage.getItem('token')
+      const userData = localStorage.getItem('user')
+
+      if (token && userData) {
+        try {
+          const parsedUser = JSON.parse(userData)
+          if (isMounted) setUser(parsedUser)
+
+          const response = await authService.me()
+          const syncedUser = response.data.user
+          localStorage.setItem('user', JSON.stringify(syncedUser))
+          if (isMounted) setUser(syncedUser)
+        } catch (error) {
+          console.error('Erro ao carregar dados do usuário:', error)
+          const message = error.response?.data?.message || localStorage.getItem('auth_error_message') || ''
+          if (message) localStorage.setItem('auth_error_message', message)
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          if (isMounted) setAuthError(message)
+          if (isMounted) setUser(null)
+        }
       }
+
+      if (isMounted) setLoading(false)
     }
 
-    setLoading(false)
+    carregarUsuario()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const login = async (email, password) => {
     try {
+      setAuthError('')
+      localStorage.removeItem('auth_error_message')
       const response = await authService.login(email, password)
       const { token, user: userData } = response.data
 
@@ -36,9 +59,11 @@ export function AuthProvider({ children }) {
 
       return { success: true }
     } catch (error) {
+      const message = error.response?.data?.message || 'Erro ao fazer login'
+      setAuthError(message)
       return {
         success: false,
-        message: error.response?.data?.message || 'Erro ao fazer login',
+        message,
       }
     }
   }
@@ -46,7 +71,14 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('auth_error_message')
+    setAuthError('')
     setUser(null)
+  }
+
+  const updateUser = (nextUser) => {
+    localStorage.setItem('user', JSON.stringify(nextUser))
+    setUser(nextUser)
   }
 
   const value = {
@@ -54,6 +86,8 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
+    updateUser,
+    authError,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
@@ -66,9 +100,6 @@ export function useAuth() {
   }
   return context
 }
-
-
-
 
 
 

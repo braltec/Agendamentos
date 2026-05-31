@@ -16,8 +16,11 @@ export const authService = {
   me: () => {
     return api.get('/auth/me')
   },
-}
 
+  updateThemePreference: (themePreference) => {
+    return api.put('/auth/theme', { tema_preferido: themePreference })
+  },
+}
 
 
 

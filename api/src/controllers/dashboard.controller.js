@@ -1,6 +1,7 @@
 import pool from '../config/database.js'
 import { dashboardModel } from '../models/dashboard.model.js'
 import { resolveDashboardPeriod } from '../utils/dashboardPeriod.js'
+import { logger } from '../utils/logger.js'
 
 const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
 
@@ -23,7 +24,7 @@ export async function getVisaoGeral(req, res) {
       data,
     })
   } catch (error) {
-    console.error('Erro ao buscar visão geral do dashboard:', error)
+    logger.error('Erro ao buscar visão geral do dashboard', { error, empresaId: req.user?.empresa_id })
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode
@@ -52,7 +53,7 @@ export async function getGestaoAgenda(req, res) {
       data,
     })
   } catch (error) {
-    console.error('Erro ao buscar gestão de agenda do dashboard:', error)
+    logger.error('Erro ao buscar gestão de agenda do dashboard', { error, empresaId: req.user?.empresa_id })
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode
@@ -81,7 +82,7 @@ export async function getClientes(req, res) {
       data,
     })
   } catch (error) {
-    console.error('Erro ao buscar clientes do dashboard:', error)
+    logger.error('Erro ao buscar clientes do dashboard', { error, empresaId: req.user?.empresa_id })
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode
@@ -110,7 +111,7 @@ export async function getServicos(req, res) {
       data,
     })
   } catch (error) {
-    console.error('Erro ao buscar serviços do dashboard:', error)
+    logger.error('Erro ao buscar serviços do dashboard', { error, empresaId: req.user?.empresa_id })
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode
@@ -139,7 +140,7 @@ export async function getIAAtendimento(req, res) {
       data,
     })
   } catch (error) {
-    console.error('Erro ao buscar IA / Atendimento do dashboard:', error)
+    logger.error('Erro ao buscar IA / Atendimento do dashboard', { error, empresaId: req.user?.empresa_id })
     res.status(error.statusCode || 500).json({
       success: false,
       message: error.statusCode
@@ -156,12 +157,6 @@ export async function getDashboardStats(req, res) {
     const nivelAcessoId = req.user.nivel_acesso_id
     const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
     const hoje = new Date().toISOString().split('T')[0]
-    
-    console.log('📊 getDashboardStats:')
-    console.log('   empresa_id:', empresaId)
-    console.log('   nivel_acesso_id:', nivelAcessoId)
-    console.log('   isSuperAdmin:', isSuperAdmin)
-    console.log('   hoje:', hoje)
     
     // Construir condição WHERE baseado no tipo de usuário
     const whereClause = isSuperAdmin ? '' : 'WHERE empresa_id = $1'
@@ -267,12 +262,10 @@ export async function getDashboardStats(req, res) {
       }
     })
   } catch (error) {
-    console.error('❌ Erro ao buscar estatísticas:', error.message)
-    console.error('   Stack:', error.stack)
+    logger.error('Erro ao buscar estatísticas', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao buscar estatísticas do dashboard',
-      error: error.message
+      message: 'Erro ao buscar estatísticas do dashboard'
     })
   }
 }
@@ -343,12 +336,10 @@ export async function getProximosAgendamentos(req, res) {
       data: agendamentos.rows
     })
   } catch (error) {
-    console.error('❌ Erro ao buscar agendamentos:', error.message)
-    console.error('   Stack:', error.stack)
+    logger.error('Erro ao buscar agendamentos', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao buscar próximos agendamentos',
-      error: error.message
+      message: 'Erro ao buscar próximos agendamentos'
     })
   }
 }
@@ -360,12 +351,6 @@ export async function getProfissionaisHoje(req, res) {
     const nivelAcessoId = req.user.nivel_acesso_id
     const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
     const hoje = new Date().toISOString().split('T')[0]
-    
-    console.log('👥 getProfissionaisHoje:')
-    console.log('   empresa_id:', empresaId)
-    console.log('   nivel_acesso_id:', nivelAcessoId)
-    console.log('   isSuperAdmin:', isSuperAdmin)
-    console.log('   hoje:', hoje)
     
     let profissionais
     if (isSuperAdmin) {
@@ -410,12 +395,10 @@ export async function getProfissionaisHoje(req, res) {
       data: profissionais.rows
     })
   } catch (error) {
-    console.error('❌ Erro ao buscar profissionais:', error.message)
-    console.error('   Stack:', error.stack)
+    logger.error('Erro ao buscar profissionais', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao buscar profissionais',
-      error: error.message
+      message: 'Erro ao buscar profissionais'
     })
   }
 }
@@ -480,11 +463,10 @@ export async function getGraficoAgendamentos(req, res) {
       data: dados
     })
   } catch (error) {
-    console.error('❌ Erro ao buscar dados do gráfico:', error.message)
+    logger.error('Erro ao buscar dados do gráfico', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao buscar dados do gráfico',
-      error: error.message
+      message: 'Erro ao buscar dados do gráfico'
     })
   }
 }
@@ -540,7 +522,7 @@ export async function getEstatisticasPorEmpresa(req, res) {
       data: estatisticas.rows
     })
   } catch (error) {
-    console.error('Erro ao buscar estatísticas por empresa:', error)
+    logger.error('Erro ao buscar estatísticas por empresa', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar estatísticas por empresa' 

@@ -171,7 +171,7 @@ Marca o wizard como concluído para a empresa.
 # 1. Login
 TOKEN=$(curl -s -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@teste.com", "password": "admin123"}' \
+  -d '{"email": "admin@exemplo.invalid", "password": "EXEMPLO_SENHA_FORTE"}' \
   | jq -r '.token')
 
 # 2. Verificar status

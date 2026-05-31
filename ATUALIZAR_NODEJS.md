@@ -110,8 +110,8 @@ npm --version
 
 4. **Acessar aplicação**:
    - Abrir navegador em: http://localhost:3000
-   - Login: admin@teste.com
-   - Senha: admin123
+   - Login: admin@exemplo.invalid
+   - Senha: EXEMPLO_SENHA_FORTE
 
 ---
 

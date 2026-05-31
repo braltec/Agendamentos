@@ -1,21 +1,23 @@
 #!/bin/bash
 
 # Script de teste do Wizard
-# Uso: ./test-wizard.sh SEU_TOKEN_AQUI
+# Uso: TEST_WIZARD_TOKEN=TOKEN_LOCAL ./test-wizard.sh
+# Não use token de produção neste script.
 
-if [ -z "$1" ]; then
+TOKEN="${1:-$TEST_WIZARD_TOKEN}"
+
+if [ -z "$TOKEN" ]; then
   echo "❌ Erro: Token não fornecido"
-  echo "Uso: ./test-wizard.sh SEU_TOKEN_AQUI"
+  echo "Uso: TEST_WIZARD_TOKEN=TOKEN_LOCAL ./test-wizard.sh"
   echo ""
-  echo "Para pegar o token:"
+  echo "Para teste local, pegue um token temporário:"
   echo "1. Faça login em http://localhost:3000"
   echo "2. Abra o DevTools (F12) → Console"
   echo "3. Digite: localStorage.getItem('token')"
-  echo "4. Copie o token e execute: ./test-wizard.sh TOKEN"
+  echo "4. Execute o script com TEST_WIZARD_TOKEN sem commitar/expor o valor"
   exit 1
 fi
 
-TOKEN="$1"
 API_URL="http://localhost:5000/api/wizard"
 
 echo "╔══════════════════════════════════════════════════════════════════╗"
@@ -194,7 +196,6 @@ echo "║                                                                  ║"
 echo "║              ✅ TESTES CONCLUÍDOS!                               ║"
 echo "║                                                                  ║"
 echo "╚══════════════════════════════════════════════════════════════════╝"
-
 
 
 

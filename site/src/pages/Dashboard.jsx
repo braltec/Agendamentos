@@ -227,7 +227,7 @@ export default function Dashboard() {
     const checkWizard = async () => {
       try {
         const response = await wizardService.checkStatus()
-        if (!response.data.completed) {
+        if (response.data?.shouldRedirectToWizard) {
           navigate('/wizard')
         }
       } catch (error) {

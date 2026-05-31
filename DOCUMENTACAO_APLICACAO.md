@@ -460,8 +460,8 @@ Realiza login do usuário.
 **Request**:
 ```json
 {
-  "email": "admin@empresa.com",
-  "senha": "senha123"
+  "email": "admin@exemplo.invalid",
+  "senha": "EXEMPLO_SENHA_FORTE"
 }
 ```
 
@@ -469,11 +469,11 @@ Realiza login do usuário.
 ```json
 {
   "success": true,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token": "EXEMPLO_JWT_TOKEN",
   "user": {
     "id": "uuid",
     "nome": "Administrador",
-    "email": "admin@empresa.com",
+    "email": "admin@exemplo.invalid",
     "empresa_id": "uuid",
     "nivel_acesso_id": 1
   }
@@ -500,7 +500,7 @@ Retorna dados do usuário autenticado.
   "user": {
     "id": "uuid",
     "nome": "Administrador",
-    "email": "admin@empresa.com",
+    "email": "admin@exemplo.invalid",
     "empresa_id": "uuid",
     "nivel_acesso_id": 1
   }
@@ -661,7 +661,7 @@ Cria nova empresa (Super Admin apenas).
   "message": "Empresa criada com sucesso",
   "data": {
     "empresa_id": "uuid",
-    "senha_admin": "SenhaGerada123"
+    "senha_admin": "EXEMPLO_SENHA_GERADA"
   }
 }
 ```
@@ -1337,8 +1337,8 @@ DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_NAME=agendamento
 DATABASE_USER=postgres
-DATABASE_PASSWORD=senha
-JWT_SECRET=chave_secreta_muito_segura
+DATABASE_PASSWORD=EXEMPLO_DB_PASSWORD
+JWT_SECRET=EXEMPLO_JWT_SECRET_MIN_32_CHARS
 NODE_ENV=development
 ```
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -7,11 +7,24 @@ import Logo from '../components/ui/Logo'
 import { LogIn } from 'lucide-react'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { authError, login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const storedAuthError = localStorage.getItem('auth_error_message')
+    if (storedAuthError) {
+      setError(storedAuthError)
+      localStorage.removeItem('auth_error_message')
+      return
+    }
+
+    if (authError) {
+      setError(authError)
+    }
+  }, [authError])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -72,4 +85,3 @@ export default function Login() {
     </Card>
   )
 }
-

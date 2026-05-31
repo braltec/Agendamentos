@@ -5,7 +5,7 @@ const variants = {
   secondary: 'bg-secondary hover:bg-secondary-600 text-white',
   outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white',
   danger: 'bg-danger hover:bg-red-600 text-white',
-  ghost: 'hover:bg-gray-100 text-gray-700',
+  ghost: 'hover:bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]',
 }
 
 const sizes = {
@@ -27,7 +27,7 @@ function Button({
     <button
       className={clsx(
         'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200',
-        'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+        'focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-[var(--color-bg)]',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variants[variant],
         sizes[size],
@@ -65,4 +65,3 @@ function Button({
 
 export { Button }
 export default Button
-

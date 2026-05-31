@@ -4,7 +4,7 @@ function Card({ children, className = '', ...props }) {
   return (
     <div
       className={clsx(
-        'bg-white rounded-lg shadow-sm border border-gray-200',
+        'bg-[var(--color-surface)] rounded-lg shadow-sm border border-[var(--color-border)]',
         'transition-shadow hover:shadow-md',
         className
       )}
@@ -20,7 +20,7 @@ export default Card
 
 export function CardHeader({ children, className = '' }) {
   return (
-    <div className={clsx('px-6 py-4 border-b border-gray-200', className)}>
+    <div className={clsx('px-6 py-4 border-b border-[var(--color-border)]', className)}>
       {children}
     </div>
   )
@@ -32,9 +32,8 @@ export function CardBody({ children, className = '' }) {
 
 export function CardFooter({ children, className = '' }) {
   return (
-    <div className={clsx('px-6 py-4 border-t border-gray-200 bg-gray-50', className)}>
+    <div className={clsx('px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface-muted)]', className)}>
       {children}
     </div>
   )
 }
-

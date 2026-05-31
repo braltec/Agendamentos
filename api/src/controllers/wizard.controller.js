@@ -1,17 +1,65 @@
 import { wizardModel } from '../models/wizard.model.js'
+import {
+  buildAdminUserUpdatePayload,
+  buildSelfProfileUpdatePayload,
+  getLoginWithAccess,
+  requireGCalendarCanBeAssigned,
+  requireHorarioFAccess,
+  requireProfissionalAccess,
+  requireProfissionaisFromEmpresa,
+  requireServicoAccess,
+  isEmpresaAdmin,
+  isRevenda,
+  isSuperAdmin,
+  requireWizardAdminAccess,
+  requireUserManagementAccess,
+  requireUserManagementOrSelf,
+  resolveWritableEmpresaId,
+  resolveTargetEmpresaId,
+  sendAuthorizationError,
+  validateNivelAcessoAssignment,
+} from '../utils/authorization.js'
+import { logger } from '../utils/logger.js'
+
+function isValidGCalendarId(gcalendarId) {
+  if (!gcalendarId) return true
+  return String(gcalendarId).length <= 255 && /^[A-Za-z0-9._@%+\-#]+$/.test(String(gcalendarId))
+}
+
+async function resolveServicoTargetEmpresaId(user, servicoData = {}) {
+  if (servicoData.empresa_id) {
+    return resolveWritableEmpresaId(user, servicoData.empresa_id)
+  }
+
+  if (Array.isArray(servicoData.profissionais_ids) && servicoData.profissionais_ids.length > 0) {
+    const profissional = await requireProfissionalAccess(user, servicoData.profissionais_ids[0])
+    return profissional.empresa_id
+  }
+
+  return isSuperAdmin(user) ? null : user.empresa_id
+}
+
+async function canManageWizard(user) {
+  return isSuperAdmin(user) || isRevenda(user) || await isEmpresaAdmin(user)
+}
 
 // Verificar status do wizard
 export async function checkWizardStatus(req, res) {
   try {
     const empresaId = req.user.empresa_id
-    const completed = await wizardModel.checkWizardCompleted(empresaId)
+    const status = await wizardModel.getWizardStatus(empresaId)
+    const canManage = await canManageWizard(req.user)
     
     res.json({
       success: true,
-      data: { completed }
+      data: {
+        ...status,
+        canManageWizard: canManage,
+        shouldRedirectToWizard: canManage && status.accessState === 'setup_inicial',
+      }
     })
   } catch (error) {
-    console.error('Erro ao verificar wizard:', error)
+    logger.error('Erro ao verificar wizard', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao verificar status do wizard' 
@@ -45,7 +93,7 @@ export async function getEmpresaCompleta(req, res) {
       data
     })
   } catch (error) {
-    console.error('Erro ao buscar dados da empresa:', error)
+    logger.error('Erro ao buscar dados da empresa', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar dados da empresa' 
@@ -101,7 +149,7 @@ export async function getEmpresaCompletaPorId(req, res) {
     })
     
   } catch (error) {
-    console.error('Erro ao buscar dados da empresa:', error)
+    logger.error('Erro ao buscar dados da empresa por ID', { error, empresaId: req.params?.empresaId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar dados da empresa' 
@@ -113,41 +161,7 @@ export async function getEmpresaCompletaPorId(req, res) {
 export async function saveConfiguracoes(req, res) {
   try {
     const config = req.body
-    
-    // Se Super Admin ou Revenda, usar empresa_id do contexto da empresa sendo editada
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
-    
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const isRevenda = req.user.nivel_acesso_id === REVENDA_ID
-    
-    const empresaId = (isSuperAdmin || isRevenda) && config.empresa_id 
-      ? config.empresa_id 
-      : req.user.empresa_id
-    
-    console.log('⚙️ saveConfiguracoes:', {
-      isSuperAdmin,
-      isRevenda,
-      empresaIdFromBody: config.empresa_id,
-      empresaIdFromUser: req.user.empresa_id,
-      empresaIdFinal: empresaId,
-      config
-    })
-    
-    // Se for Revenda, verificar se pode editar esta empresa
-    if (isRevenda) {
-      const pool = await import('../config/database.js').then(m => m.default)
-      const checkResult = await pool.query(`
-        SELECT empresa_id FROM empresa WHERE empresa_id = $1 AND criado_por = $2
-      `, [empresaId, req.user.login_id])
-      
-      if (checkResult.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Acesso negado. Você só pode editar empresas que você cadastrou.'
-        })
-      }
-    }
+    const empresaId = await resolveWritableEmpresaId(req.user, config.empresa_id)
     
     const result = await wizardModel.saveConfiguracoes(empresaId, config)
     
@@ -157,7 +171,9 @@ export async function saveConfiguracoes(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('Erro ao salvar configurações:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao salvar configurações', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao salvar configurações' 
@@ -169,11 +185,7 @@ export async function saveConfiguracoes(req, res) {
 export async function saveHorarios(req, res) {
   try {
     const { horarios, empresa_id } = req.body
-    
-    // Se Super Admin, usar empresa_id do contexto
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && empresa_id) ? empresa_id : req.user.empresa_id
+    const empresaId = await resolveWritableEmpresaId(req.user, empresa_id)
     
     const result = await wizardModel.saveHorarios(empresaId, horarios)
     
@@ -183,7 +195,9 @@ export async function saveHorarios(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('Erro ao salvar horários:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao salvar horários', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao salvar horários' 
@@ -195,11 +209,7 @@ export async function saveHorarios(req, res) {
 export async function createProfissional(req, res) {
   try {
     const profissional = req.body
-    
-    // Se Super Admin, usar empresa_id do contexto
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && profissional.empresa_id) ? profissional.empresa_id : req.user.empresa_id
+    const empresaId = await resolveWritableEmpresaId(req.user, profissional.empresa_id)
     
     const result = await wizardModel.createProfissional(empresaId, profissional)
     
@@ -209,11 +219,12 @@ export async function createProfissional(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('Erro ao criar profissional:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao criar profissional', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: 'Erro ao criar profissional',
-      error: error.message
+      message: 'Erro ao criar profissional'
     })
   }
 }
@@ -222,6 +233,7 @@ export async function createProfissional(req, res) {
 export async function createServico(req, res) {
   try {
     const servico = req.body
+    await requireWizardAdminAccess(req.user)
     
     const result = await wizardModel.createServico(servico)
     
@@ -231,7 +243,9 @@ export async function createServico(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('Erro ao criar serviço:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao criar serviço', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao criar serviço' 
@@ -243,6 +257,24 @@ export async function createServico(req, res) {
 export async function vincularServico(req, res) {
   try {
     const { profissional_id, servico_id, personalizacao } = req.body
+    await requireWizardAdminAccess(req.user)
+
+    const profissional = await requireProfissionalAccess(req.user, profissional_id)
+    const servico = await requireServicoAccess(req.user, servico_id, {
+      allowUnlinked: true,
+      requiredEmpresaId: profissional.empresa_id,
+    })
+
+    const crossTenantService = servico.empresaIds.some(
+      empresaId => String(empresaId) !== String(profissional.empresa_id)
+    )
+
+    if (crossTenantService) {
+      return res.status(403).json({
+        success: false,
+        message: 'Serviço não pertence à mesma empresa do profissional',
+      })
+    }
     
     const result = await wizardModel.vincularServicoProfissional(
       profissional_id,
@@ -256,7 +288,9 @@ export async function vincularServico(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('Erro ao vincular serviço:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao vincular serviço', { error, profissional_id, servico_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao vincular serviço' 
@@ -268,6 +302,23 @@ export async function vincularServico(req, res) {
 export async function vincularHorario(req, res) {
   try {
     const { profissional_id, horario_f_id } = req.body
+    await requireWizardAdminAccess(req.user)
+
+    const profissional = await requireProfissionalAccess(req.user, profissional_id)
+    const horario = await requireHorarioFAccess(req.user, horario_f_id, {
+      requiredEmpresaId: profissional.empresa_id,
+    })
+
+    const crossTenantHorario = horario.empresaIds.some(
+      empresaId => String(empresaId) !== String(profissional.empresa_id)
+    )
+
+    if (crossTenantHorario) {
+      return res.status(403).json({
+        success: false,
+        message: 'Horário não pertence à mesma empresa do profissional',
+      })
+    }
     
     await wizardModel.vincularHorarioProfissional(profissional_id, horario_f_id)
     
@@ -276,7 +327,9 @@ export async function vincularHorario(req, res) {
       message: 'Horário vinculado ao profissional com sucesso'
     })
   } catch (error) {
-    console.error('Erro ao vincular horário:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao vincular horário', { error, profissional_id, horario_f_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao vincular horário' 
@@ -288,19 +341,7 @@ export async function vincularHorario(req, res) {
 export async function updateInstancia(req, res) {
   try {
     const instanciaData = req.body
-    
-    // Se Super Admin, usar empresa_id do contexto
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && instanciaData.empresa_id) ? instanciaData.empresa_id : req.user.empresa_id
-    
-    console.log('📱 updateInstancia:', {
-      isSuperAdmin,
-      empresaIdFromBody: instanciaData.empresa_id,
-      empresaIdFromUser: req.user.empresa_id,
-      empresaIdFinal: empresaId,
-      instanciaId: instanciaData.instancia_id
-    })
+    const empresaId = await resolveWritableEmpresaId(req.user, instanciaData.empresa_id)
     
     const result = await wizardModel.updateInstancia(empresaId, instanciaData)
     
@@ -310,7 +351,9 @@ export async function updateInstancia(req, res) {
       data: result
     })
   } catch (error) {
-    console.error('❌ Erro ao atualizar instância:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar instância', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar instância' 
@@ -321,6 +364,7 @@ export async function updateInstancia(req, res) {
 // Concluir wizard
 export async function completeWizard(req, res) {
   try {
+    await requireWizardAdminAccess(req.user)
     const empresaId = req.user.empresa_id
     
     await wizardModel.markWizardCompleted(empresaId)
@@ -330,7 +374,9 @@ export async function completeWizard(req, res) {
       message: 'Wizard concluído com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao concluir wizard:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao concluir wizard', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao concluir wizard' 
@@ -342,41 +388,7 @@ export async function completeWizard(req, res) {
 export async function updateEmpresa(req, res) {
   try {
     const empresaData = req.body
-    
-    // Se Super Admin ou Revenda e empresa_id vem no body, usar esse ID
-    // Caso contrário, usar o ID do usuário logado
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
-    
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const isRevenda = req.user.nivel_acesso_id === REVENDA_ID
-    
-    const empresaId = ((isSuperAdmin || isRevenda) && empresaData.empresa_id) 
-      ? empresaData.empresa_id 
-      : req.user.empresa_id
-    
-    console.log('🔧 updateEmpresa:', {
-      isSuperAdmin,
-      isRevenda,
-      empresaIdFromBody: empresaData.empresa_id,
-      empresaIdFromUser: req.user.empresa_id,
-      empresaIdFinal: empresaId
-    })
-    
-    // Se for Revenda, verificar se pode editar esta empresa
-    if (isRevenda) {
-      const pool = await import('../config/database.js').then(m => m.default)
-      const checkResult = await pool.query(`
-        SELECT empresa_id FROM empresa WHERE empresa_id = $1 AND criado_por = $2
-      `, [empresaId, req.user.login_id])
-      
-      if (checkResult.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Acesso negado. Você só pode editar empresas que você cadastrou.'
-        })
-      }
-    }
+    const empresaId = await resolveWritableEmpresaId(req.user, empresaData.empresa_id)
     
     await wizardModel.updateEmpresaData(empresaId, empresaData)
     
@@ -385,7 +397,9 @@ export async function updateEmpresa(req, res) {
       message: 'Dados da empresa atualizados com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar empresa:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar empresa', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar dados da empresa' 
@@ -398,20 +412,25 @@ export async function updateServico(req, res) {
   try {
     const { servicoId } = req.params
     const servicoData = req.body
-    
-    console.log('🛠️ updateServico:', {
-      servicoId,
-      servicoData
+    await requireWizardAdminAccess(req.user)
+
+    const targetEmpresaId = await resolveServicoTargetEmpresaId(req.user, servicoData)
+    await requireServicoAccess(req.user, servicoId, {
+      allowUnlinked: isSuperAdmin(req.user),
+      requiredEmpresaId: targetEmpresaId,
     })
+    await requireProfissionaisFromEmpresa(req.user, servicoData.profissionais_ids, targetEmpresaId)
     
-    await wizardModel.updateServicoData(servicoId, servicoData)
+    await wizardModel.updateServicoData(servicoId, servicoData, targetEmpresaId)
     
     res.json({
       success: true,
       message: 'Serviço atualizado com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar serviço:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar serviço', { error, servicoId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar serviço' 
@@ -424,6 +443,17 @@ export async function updateProfissional(req, res) {
   try {
     const { profissionalId } = req.params
     const profissionalData = req.body
+    await requireWizardAdminAccess(req.user)
+    await requireProfissionalAccess(req.user, profissionalId)
+
+    if (profissionalData.gcalendar_id && !isValidGCalendarId(profissionalData.gcalendar_id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Calendário do Google inválido',
+      })
+    }
+
+    await requireGCalendarCanBeAssigned(req.user, profissionalId, profissionalData.gcalendar_id)
     
     await wizardModel.updateProfissionalData(profissionalId, profissionalData)
     
@@ -432,7 +462,9 @@ export async function updateProfissional(req, res) {
       message: 'Profissional atualizado com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar profissional:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar profissional', { error, profissionalId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar profissional' 
@@ -444,19 +476,7 @@ export async function updateProfissional(req, res) {
 export async function updateHorarios(req, res) {
   try {
     const { horarios, empresa_id } = req.body
-    
-    // Se Super Admin, usar empresa_id do contexto
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && empresa_id) ? empresa_id : req.user.empresa_id
-    
-    console.log('🕐 updateHorarios:', {
-      isSuperAdmin,
-      empresaIdFromBody: empresa_id,
-      empresaIdFromUser: req.user.empresa_id,
-      empresaIdFinal: empresaId,
-      totalHorarios: horarios?.length
-    })
+    const empresaId = await resolveWritableEmpresaId(req.user, empresa_id)
     
     await wizardModel.updateHorariosData(empresaId, horarios)
     
@@ -465,7 +485,9 @@ export async function updateHorarios(req, res) {
       message: 'Horários atualizados com sucesso!'
     })
   } catch (error) {
-    console.error('❌ Erro ao atualizar horários:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar horários', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar horários' 
@@ -477,6 +499,8 @@ export async function updateHorarios(req, res) {
 export async function deleteServico(req, res) {
   try {
     const { servicoId } = req.params
+    await requireWizardAdminAccess(req.user)
+    await requireServicoAccess(req.user, servicoId)
     
     await wizardModel.deleteServicoData(servicoId)
     
@@ -485,7 +509,9 @@ export async function deleteServico(req, res) {
       message: 'Serviço excluído com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao excluir serviço:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao excluir serviço', { error, servicoId })
     res.status(500).json({ 
       success: false,
       message: error.message || 'Erro ao excluir serviço' 
@@ -497,6 +523,8 @@ export async function deleteServico(req, res) {
 export async function deleteProfissional(req, res) {
   try {
     const { profissionalId } = req.params
+    await requireWizardAdminAccess(req.user)
+    await requireProfissionalAccess(req.user, profissionalId)
     
     await wizardModel.deleteProfissionalData(profissionalId)
     
@@ -505,7 +533,9 @@ export async function deleteProfissional(req, res) {
       message: 'Profissional excluído com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao excluir profissional:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao excluir profissional', { error, profissionalId })
     res.status(500).json({ 
       success: false,
       message: error.message || 'Erro ao excluir profissional' 
@@ -523,7 +553,7 @@ export async function getAllPrompts(req, res) {
       data: prompts
     })
   } catch (error) {
-    console.error('Erro ao buscar prompts:', error)
+    logger.error('Erro ao buscar prompts', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar prompts' 
@@ -542,7 +572,7 @@ export async function getPromptVersions(req, res) {
       data: versions
     })
   } catch (error) {
-    console.error('Erro ao buscar versões do prompt:', error)
+    logger.error('Erro ao buscar versões do prompt', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar versões do prompt' 
@@ -554,20 +584,7 @@ export async function getPromptVersions(req, res) {
 export async function updateEmpresaPrompt(req, res) {
   try {
     const { promptKey, promptVersion } = req.body
-    
-    // Se Super Admin, usar empresa_id do contexto
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && req.body.empresa_id) ? req.body.empresa_id : req.user.empresa_id
-
-    console.log('🤖 updateEmpresaPrompt:', {
-      isSuperAdmin,
-      empresaIdFromBody: req.body.empresa_id,
-      empresaIdFromUser: req.user.empresa_id,
-      empresaIdFinal: empresaId,
-      promptKey,
-      promptVersion
-    })
+    const empresaId = await resolveWritableEmpresaId(req.user, req.body.empresa_id)
     
     await wizardModel.updateEmpresaPrompt(empresaId, promptKey, promptVersion)
     
@@ -576,7 +593,9 @@ export async function updateEmpresaPrompt(req, res) {
       message: 'Prompt atualizado com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar prompt:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar prompt', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar prompt' 
@@ -588,11 +607,8 @@ export async function updateEmpresaPrompt(req, res) {
 export async function getUsuarios(req, res) {
   try {
     const { empresaId } = req.params
-    
-    // Se Super Admin, usar empresaId da URL; senão, usar empresa do usuário logado
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const targetEmpresaId = (isSuperAdmin && empresaId) ? empresaId : req.user.empresa_id
+    await requireUserManagementAccess(req.user)
+    const targetEmpresaId = await resolveTargetEmpresaId(req.user, empresaId)
 
     const usuarios = await wizardModel.getUsuariosByEmpresa(targetEmpresaId)
     
@@ -601,7 +617,9 @@ export async function getUsuarios(req, res) {
       data: usuarios
     })
   } catch (error) {
-    console.error('Erro ao buscar usuários:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao buscar usuários', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar usuários' 
@@ -619,7 +637,7 @@ export async function getNiveisAcesso(req, res) {
       data: niveis
     })
   } catch (error) {
-    console.error('Erro ao buscar níveis de acesso:', error)
+    logger.error('Erro ao buscar níveis de acesso', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao buscar níveis de acesso' 
@@ -631,11 +649,17 @@ export async function getNiveisAcesso(req, res) {
 export async function createUsuario(req, res) {
   try {
     const userData = req.body
-    
-    // Se Super Admin, usar empresa_id do body; senão, usar empresa do usuário logado
-    const SUPER_ADMIN_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const isSuperAdmin = req.user.nivel_acesso_id === SUPER_ADMIN_ID
-    const empresaId = (isSuperAdmin && userData.empresa_id) ? userData.empresa_id : req.user.empresa_id
+
+    await requireUserManagementAccess(req.user)
+    validateNivelAcessoAssignment(req.user, userData.nivel_acesso_id)
+    const empresaId = await resolveTargetEmpresaId(req.user, userData.empresa_id)
+
+    if (!userData.senha) {
+      return res.status(400).json({
+        success: false,
+        message: 'Senha é obrigatória',
+      })
+    }
 
     // Hash da senha usando bcrypt
     const bcrypt = await import('bcrypt')
@@ -652,10 +676,12 @@ export async function createUsuario(req, res) {
       data: novoUsuario
     })
   } catch (error) {
-    console.error('Erro ao criar usuário:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao criar usuário', { error, empresaId: req.user?.empresa_id })
     res.status(500).json({ 
       success: false,
-      message: error.message || 'Erro ao criar usuário' 
+      message: 'Erro ao criar usuário'
     })
   }
 }
@@ -665,8 +691,23 @@ export async function updateUsuario(req, res) {
   try {
     const { loginId } = req.params
     const userData = req.body
+
+    const usuarioAlvo = await getLoginWithAccess(req.user, loginId)
+    await requireUserManagementOrSelf(req.user, loginId)
+
+    const isSelfUpdate = String(req.user.login_id || req.user.user_id || '') === String(loginId)
+    const updatePayload = isSelfUpdate && !isSuperAdmin(req.user)
+      ? buildSelfProfileUpdatePayload(req.user, loginId, userData)
+      : buildAdminUserUpdatePayload(req.user, usuarioAlvo, userData)
     
-    const usuarioAtualizado = await wizardModel.updateUsuario(loginId, userData)
+    const usuarioAtualizado = await wizardModel.updateUsuario(loginId, updatePayload)
+
+    if (!usuarioAtualizado) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado',
+      })
+    }
     
     res.json({
       success: true,
@@ -674,7 +715,9 @@ export async function updateUsuario(req, res) {
       data: usuarioAtualizado
     })
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar usuário', { error, loginId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar usuário' 
@@ -687,6 +730,16 @@ export async function updateSenhaUsuario(req, res) {
   try {
     const { loginId } = req.params
     const { novaSenha } = req.body
+
+    await getLoginWithAccess(req.user, loginId)
+    await requireUserManagementOrSelf(req.user, loginId)
+
+    if (!novaSenha) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nova senha é obrigatória',
+      })
+    }
     
     // Hash da nova senha
     const bcrypt = await import('bcrypt')
@@ -699,7 +752,9 @@ export async function updateSenhaUsuario(req, res) {
       message: 'Senha atualizada com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao atualizar senha:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao atualizar senha', { error, loginId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao atualizar senha' 
@@ -719,6 +774,9 @@ export async function deleteUsuario(req, res) {
         message: 'Você não pode excluir seu próprio usuário'
       })
     }
+
+    await getLoginWithAccess(req.user, loginId)
+    await requireUserManagementAccess(req.user)
     
     await wizardModel.deleteUsuario(loginId)
     
@@ -727,11 +785,12 @@ export async function deleteUsuario(req, res) {
       message: 'Usuário excluído com sucesso!'
     })
   } catch (error) {
-    console.error('Erro ao excluir usuário:', error)
+    if (sendAuthorizationError(res, error)) return
+
+    logger.error('Erro ao excluir usuário', { error, loginId })
     res.status(500).json({ 
       success: false,
       message: 'Erro ao excluir usuário' 
     })
   }
 }
-

@@ -3,7 +3,11 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default_secret_change_in_production'
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET obrigatório e com pelo menos 32 caracteres')
+}
+
+const JWT_SECRET = process.env.JWT_SECRET
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h'
 
 export function generateToken(payload) {
@@ -17,7 +21,6 @@ export function verifyToken(token) {
     return null
   }
 }
-
 
 
 

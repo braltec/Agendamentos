@@ -1,91 +1,86 @@
-import pool from './src/config/database.js'
 import bcrypt from 'bcrypt'
+import pool from './src/config/database.js'
 
-/**
- * Script para criar gestor de uma organização
- * 
- * Como usar:
- * node criar-gestor-organizacao.js
- */
+const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
+const CONFIRM_CREATE = process.env.CONFIRM_CREATE_GESTOR_ORGANIZACAO === 'YES'
+const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION_USER_SCRIPT === 'YES'
+
+function requireEnv(name) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Variável obrigatória ausente: ${name}`)
+  }
+  return value
+}
+
+function assertSafeExecution() {
+  if (!CONFIRM_CREATE) {
+    throw new Error('Defina CONFIRM_CREATE_GESTOR_ORGANIZACAO=YES para executar este script')
+  }
+
+  if (process.env.NODE_ENV === 'production' && !CONFIRM_PRODUCTION) {
+    throw new Error('Execução em produção exige CONFIRM_PRODUCTION_USER_SCRIPT=YES')
+  }
+}
 
 async function criarGestor() {
   try {
-    console.log('🔍 Buscando organizações disponíveis...\n')
-    
-    // Listar organizações
-    const orgs = await pool.query(`
-      SELECT 
-        org_revenda_id, 
-        org_nome, 
-        org_razao_social,
-        (SELECT COUNT(*) FROM login WHERE org_revenda_id = o.org_revenda_id) as total_usuarios
-      FROM organizacao_revenda o
-      ORDER BY org_criado_em DESC
-    `)
-    
-    if (orgs.rows.length === 0) {
-      console.log('❌ Nenhuma organização encontrada!')
-      console.log('   Crie uma organização primeiro.')
-      process.exit(1)
-    }
-    
-    console.log('📋 Organizações disponíveis:\n')
-    orgs.rows.forEach((org, index) => {
-      console.log(`${index + 1}. ${org.org_nome}`)
-      console.log(`   ID: ${org.org_revenda_id}`)
-      console.log(`   Usuários: ${org.total_usuarios}`)
-      console.log('')
-    })
-    
-    // Para este exemplo, vou pegar a primeira organização
-    const orgEscolhida = orgs.rows[0]
-    const orgId = orgEscolhida.org_revenda_id
-    
-    console.log(`✅ Usando organização: ${orgEscolhida.org_nome}\n`)
-    
-    // Dados do gestor
+    assertSafeExecution()
+
     const dadosGestor = {
-      nome: 'Gestor Principal',
-      login: 'gestor.principal',
-      email: 'gestor@teste.com',
-      senha: 'senha123',
-      is_gestor_revenda: true
+      org_revenda_id: requireEnv('GESTOR_ORG_REVENDA_ID'),
+      empresa_id: requireEnv('GESTOR_EMPRESA_ID'),
+      nome: requireEnv('GESTOR_NAME'),
+      login: requireEnv('GESTOR_LOGIN'),
+      email: requireEnv('GESTOR_EMAIL').toLowerCase(),
+      password: requireEnv('GESTOR_PASSWORD'),
+      is_gestor_revenda: true,
     }
-    
-    console.log('👤 Dados do gestor:')
-    console.log(`   Nome: ${dadosGestor.nome}`)
-    console.log(`   Login: ${dadosGestor.login}`)
-    console.log(`   Email: ${dadosGestor.email}`)
-    console.log(`   Senha: ${dadosGestor.senha}`)
-    console.log(`   Tipo: Gestor\n`)
-    
-    // Verificar se login já existe
-    const checkLogin = await pool.query(
-      'SELECT login_id FROM login WHERE login = $1',
-      [dadosGestor.login]
+
+    if (dadosGestor.password.length < 12) {
+      throw new Error('GESTOR_PASSWORD deve ter pelo menos 12 caracteres')
+    }
+
+    console.log('Criando gestor de organização')
+
+    const orgResult = await pool.query(
+      `SELECT org_revenda_id
+       FROM organizacao_revenda
+       WHERE org_revenda_id = $1
+       LIMIT 1`,
+      [dadosGestor.org_revenda_id]
     )
-    
+
+    if (orgResult.rows.length === 0) {
+      throw new Error('Organização informada em GESTOR_ORG_REVENDA_ID não foi encontrada')
+    }
+
+    const empresaResult = await pool.query(
+      `SELECT empresa_id
+       FROM empresa
+       WHERE empresa_id = $1
+       LIMIT 1`,
+      [dadosGestor.empresa_id]
+    )
+
+    if (empresaResult.rows.length === 0) {
+      throw new Error('Empresa informada em GESTOR_EMPRESA_ID não foi encontrada')
+    }
+
+    const checkLogin = await pool.query(
+      `SELECT login_id
+       FROM login
+       WHERE login = $1 OR email = $2
+       LIMIT 1`,
+      [dadosGestor.login, dadosGestor.email]
+    )
+
     if (checkLogin.rows.length > 0) {
-      console.log('⚠️  Login já existe! Usando outro login...')
-      dadosGestor.login = `gestor.${Date.now()}`
-      console.log(`   Novo login: ${dadosGestor.login}\n`)
+      throw new Error('Já existe usuário com o login ou email informado')
     }
-    
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash(dadosGestor.senha, 10)
-    
-    // Pegar primeira empresa como placeholder
-    const empresaPlaceholder = await pool.query('SELECT empresa_id FROM empresa LIMIT 1')
-    
-    if (empresaPlaceholder.rows.length === 0) {
-      console.log('❌ Nenhuma empresa encontrada no sistema!')
-      console.log('   Crie pelo menos uma empresa primeiro.')
-      process.exit(1)
-    }
-    
-    // Criar gestor
-    const REVENDA_ID = '550e8400-e29b-41d4-a716-446655440020'
-    
+
+    const hashedPassword = await bcrypt.hash(dadosGestor.password, 10)
+
     const result = await pool.query(`
       INSERT INTO login (
         login_id,
@@ -101,42 +96,24 @@ async function criarGestor() {
       RETURNING login_id, nome, login, email, org_revenda_id, is_gestor_revenda, created
     `, [
       REVENDA_ID,
-      empresaPlaceholder.rows[0].empresa_id,
+      dadosGestor.empresa_id,
       dadosGestor.login,
       dadosGestor.email,
       hashedPassword,
       dadosGestor.nome,
-      orgId,
-      dadosGestor.is_gestor_revenda
+      dadosGestor.org_revenda_id,
+      dadosGestor.is_gestor_revenda,
     ])
-    
-    console.log('✅ Gestor criado com sucesso!\n')
-    console.log('📊 Dados do gestor criado:')
-    console.log(`   ID: ${result.rows[0].login_id}`)
-    console.log(`   Nome: ${result.rows[0].nome}`)
-    console.log(`   Login: ${result.rows[0].login}`)
-    console.log(`   Email: ${result.rows[0].email}`)
-    console.log(`   É Gestor: ${result.rows[0].is_gestor_revenda}`)
-    console.log(`   Criado em: ${result.rows[0].created}`)
-    console.log('')
-    console.log('🔑 Credenciais de acesso:')
-    console.log(`   Email: ${dadosGestor.email}`)
-    console.log(`   Senha: ${dadosGestor.senha}`)
-    console.log('')
-    console.log('📝 Próximos passos:')
-    console.log('   1. Faça login com as credenciais acima')
-    console.log('   2. Acesse o menu "Vendedores"')
-    console.log('   3. Clique em "Novo Vendedor" para criar vendedores')
-    
+
+    console.log('Gestor criado com sucesso.')
+    console.log(`Login ID: ${result.rows[0].login_id}`)
+    console.log('A senha não foi exibida. Guarde-a em cofre seguro.')
   } catch (error) {
-    console.error('❌ Erro ao criar gestor:', error)
+    console.error('Erro ao criar gestor:', error.message)
+    process.exitCode = 1
   } finally {
     await pool.end()
   }
 }
 
-// Executar
 criarGestor()
-
-
-

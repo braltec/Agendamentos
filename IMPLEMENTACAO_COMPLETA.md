@@ -304,8 +304,8 @@ Authorization: Bearer {token_super_admin}
 {
   "nome": "Gestor Teste",
   "login": "gestor.teste",
-  "email": "gestor@teste.com",
-  "senha": "senha123",
+  "email": "gestor@exemplo.invalid",
+  "senha": "EXEMPLO_SENHA_FORTE",
   "is_gestor_revenda": true
 }
 ```
@@ -316,8 +316,8 @@ Authorization: Bearer {token_super_admin}
 POST http://localhost:5000/api/auth/login
 
 {
-  "email": "gestor@teste.com",
-  "password": "senha123"
+  "email": "gestor@exemplo.invalid",
+  "password": "EXEMPLO_SENHA_FORTE"
 }
 
 # O token retornado conterá:

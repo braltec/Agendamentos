@@ -20,8 +20,8 @@ Status: ✅ CONECTADO
 
 🔐 CREDENCIAIS DE ACESSO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📧 Email: admin@teste.com
-🔑 Senha: admin123
+📧 Email: admin@exemplo.invalid
+🔑 Senha: EXEMPLO_SENHA_FORTE
 🏢 Empresa: Studio Débora sousa
 
 🚀 COMO INICIAR

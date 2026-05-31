@@ -39,8 +39,9 @@ export default function Wizard() {
     const checkWizardStatus = async () => {
       try {
         const response = await wizardService.checkStatus()
-        if (response.data.completed) {
-          navigate('/dashboard')
+        const wizardStatus = response.data || {}
+        if (!wizardStatus.canManageWizard || wizardStatus.completed) {
+          navigate('/')
         }
       } catch (error) {
         console.error('Erro ao verificar status do wizard:', error)
@@ -69,7 +70,7 @@ export default function Wizard() {
     setLoading(true)
     try {
       await wizardService.complete()
-      navigate('/dashboard')
+      navigate('/')
     } catch (error) {
       console.error('Erro ao concluir wizard:', error)
       alert('Erro ao concluir wizard. Tente novamente.')
@@ -152,9 +153,6 @@ export default function Wizard() {
     </div>
   )
 }
-
-
-
 
 
 
