@@ -3632,7 +3632,708 @@ async function getIAAtendimentoCards(empresaId, isSuperAdmin, periodo) {
   }
 }
 
+async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
+  const instanciaScope = isSuperAdmin ? '' : 'AND i.empresa_id = $1'
+  const eventoScope = isSuperAdmin ? '' : 'AND ev.empresa_id = $1'
+  const alertaScope = isSuperAdmin ? '' : 'AND ia.empresa_id = $1'
+  const startParam = isSuperAdmin ? '$1' : '$2'
+  const endParam = isSuperAdmin ? '$2' : '$3'
+  const periodoSql = periodo
+    ? `
+        ${startParam}::date AS inicio_mes,
+        ${endParam}::date AS fim_mes,
+        (${startParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (${endParam}::date)::timestamp AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+    : `
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}')::date AS inicio_mes,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month')::date AS fim_mes,
+        date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') AT TIME ZONE '${TIMEZONE}' AS inicio_ts,
+        (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts
+      `
+
+  const result = await pool.query(`
+    WITH periodo AS (
+      SELECT
+        ${periodoSql}
+    ),
+    dias_periodo AS (
+      SELECT
+        g.dia::date AS data,
+        to_char(g.dia, 'DD/MM') AS label
+      FROM generate_series(
+        (SELECT inicio_mes FROM periodo),
+        (SELECT fim_mes FROM periodo) - INTERVAL '1 day',
+        INTERVAL '1 day'
+      ) AS g(dia)
+    ),
+    instancias AS (
+      SELECT
+        i.instancia_id,
+        i.empresa_id,
+        i.instancia_nome,
+        i.evolution_instance_id,
+        i.evolution_server_url,
+        i.evolution_state,
+        i.evolution_status,
+        i.evolution_status_reason,
+        i.evolution_ultima_ocorrencia_em,
+        i.evolution_ultimo_alerta_em,
+        COALESCE(i.monitorar_conexao, true) AS monitorar_conexao,
+        e.empresa_nome,
+        CASE
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('online', 'open') THEN 'online'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('offline', 'close') THEN 'offline'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('instavel', 'unstable', 'connecting') THEN 'instavel'
+          ELSE 'desconhecido'
+        END AS status_normalizado,
+        i.evolution_ultima_conferencia_em,
+        i.evolution_primeira_queda_em,
+        GREATEST(COALESCE(i.evolution_offline_consecutivo_count, 0), 0)::numeric AS offline_consecutivo_count,
+        COALESCE(i.evolution_alerta_aberto, false) AS alerta_aberto
+      FROM instancia i
+      LEFT JOIN empresa e ON e.empresa_id = i.empresa_id
+      WHERE COALESCE(i.monitorar_conexao, true) = true
+        ${instanciaScope}
+    ),
+    eventos_periodo AS (
+      SELECT
+        ev.instancia_id,
+        ev.empresa_id,
+        COALESCE(NULLIF(BTRIM(ev.instancia_nome), ''), i.instancia_nome, 'Instância não informada') AS instancia_nome,
+        ev.tipo_evento,
+        ev.origem AS origem_original,
+        ev.state,
+        ev.status_reason,
+        ev.sucesso,
+        ev.erro_tipo,
+        LEFT(ev.erro_detalhe, 240) AS erro_detalhe_resumido,
+        e.empresa_nome,
+        CASE
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('online', 'open') THEN 'online'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('offline', 'close') THEN 'offline'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('instavel', 'unstable', 'connecting') THEN 'instavel'
+          ELSE 'desconhecido'
+        END AS status_normalizado,
+        COALESCE(NULLIF(BTRIM(ev.origem), ''), 'desconhecida') AS origem,
+        COALESCE(ev.ocorreu_em, ev.recebido_em) AS evento_em,
+        (COALESCE(ev.ocorreu_em, ev.recebido_em) AT TIME ZONE '${TIMEZONE}')::date AS data_evento
+      FROM instancia_evento_log ev
+      LEFT JOIN instancia i
+        ON i.instancia_id = ev.instancia_id
+        AND i.empresa_id = ev.empresa_id
+      LEFT JOIN empresa e ON e.empresa_id = ev.empresa_id
+      JOIN periodo p ON true
+      WHERE COALESCE(ev.ocorreu_em, ev.recebido_em) >= p.inicio_ts
+        AND COALESCE(ev.ocorreu_em, ev.recebido_em) < p.fim_ts
+        ${eventoScope}
+    ),
+    alertas_abertos AS (
+      SELECT DISTINCT
+        ia.instancia_id,
+        ia.empresa_id
+      FROM instancia_alerta ia
+      WHERE COALESCE(ia.resolvido, false) = false
+        ${alertaScope}
+    ),
+    alertas_periodo AS (
+      SELECT
+        ia.instancia_id,
+        ia.empresa_id,
+        COALESCE(NULLIF(BTRIM(ia.instancia_nome), ''), i.instancia_nome, 'Instância não informada') AS instancia_nome,
+        e.empresa_nome,
+        ia.evolution_instance_id,
+        ia.tipo_alerta,
+        ia.severidade,
+        ia.status_normalizado,
+        GREATEST(COALESCE(ia.offline_consecutivo_count, 0), 0)::int AS offline_consecutivo_count,
+        ia.primeira_ocorrencia_em,
+        ia.disparado_em,
+        COALESCE(ia.resolvido, false) AS resolvido,
+        ia.resolvido_em,
+        LEFT(ia.mensagem, 220) AS mensagem_resumida,
+        (ia.disparado_em AT TIME ZONE '${TIMEZONE}')::date AS data_alerta
+      FROM instancia_alerta ia
+      LEFT JOIN instancia i
+        ON i.instancia_id = ia.instancia_id
+        AND i.empresa_id = ia.empresa_id
+      LEFT JOIN empresa e ON e.empresa_id = ia.empresa_id
+      JOIN periodo p ON true
+      WHERE ia.disparado_em >= p.inicio_ts
+        AND ia.disparado_em < p.fim_ts
+        ${alertaScope}
+    ),
+    ultimo_alerta_aberto AS (
+      SELECT DISTINCT ON (ia.empresa_id, ia.instancia_id)
+        ia.instancia_id,
+        ia.empresa_id,
+        ia.severidade,
+        ia.status_normalizado,
+        GREATEST(COALESCE(ia.offline_consecutivo_count, 0), 0)::int AS offline_consecutivo_count,
+        ia.primeira_ocorrencia_em,
+        ia.disparado_em,
+        LEFT(ia.mensagem, 220) AS mensagem_resumida
+      FROM instancia_alerta ia
+      WHERE COALESCE(ia.resolvido, false) = false
+        ${alertaScope}
+      ORDER BY
+        ia.empresa_id,
+        ia.instancia_id,
+        ia.disparado_em DESC NULLS LAST,
+        ia.primeira_ocorrencia_em DESC NULLS LAST
+    ),
+    instancias_com_alerta AS (
+      SELECT DISTINCT
+        i.instancia_id,
+        i.empresa_id
+      FROM instancias i
+      LEFT JOIN alertas_abertos aa
+        ON aa.instancia_id = i.instancia_id
+        AND aa.empresa_id = i.empresa_id
+      WHERE i.alerta_aberto = true
+        OR aa.instancia_id IS NOT NULL
+    ),
+    resumo AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status_normalizado = 'online')::int AS instancias_online,
+        COUNT(*) FILTER (WHERE status_normalizado = 'offline')::int AS instancias_offline,
+        COUNT(*) FILTER (WHERE status_normalizado = 'instavel')::int AS instancias_instaveis,
+        MAX(
+          GREATEST(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - evolution_primeira_queda_em)), 0)
+        ) FILTER (
+          WHERE status_normalizado = 'offline'
+            AND evolution_primeira_queda_em IS NOT NULL
+        )::numeric AS maior_tempo_offline_seg,
+        COALESCE(
+          ROUND(AVG(offline_consecutivo_count) FILTER (WHERE status_normalizado = 'offline'), 1),
+          0
+        )::numeric AS media_offline_consecutivo,
+        MAX(evolution_ultima_conferencia_em) AS ultima_conferencia_em
+      FROM instancias
+    ),
+    empresas_acao_suporte AS (
+      SELECT COUNT(DISTINCT i.empresa_id)::int AS total
+      FROM instancias i
+      LEFT JOIN instancias_com_alerta ica ON ica.instancia_id = i.instancia_id
+      WHERE i.status_normalizado = 'offline'
+        OR ica.instancia_id IS NOT NULL
+    ),
+    status_ordem AS (
+      SELECT *
+      FROM (VALUES
+        ('online', 1),
+        ('offline', 2),
+        ('instavel', 3),
+        ('desconhecido', 4)
+      ) AS so(status, ordem)
+    ),
+    status_atual_instancias AS (
+      SELECT
+        so.status,
+        so.ordem,
+        COUNT(i.instancia_id)::int AS quantidade
+      FROM status_ordem so
+      LEFT JOIN instancias i ON i.status_normalizado = so.status
+      GROUP BY so.status, so.ordem
+    ),
+    evolucao_quedas_por_dia AS (
+      SELECT
+        dp.data,
+        dp.label,
+        COUNT(ep.evento_em) FILTER (WHERE ep.status_normalizado = 'offline')::int AS quedas
+      FROM dias_periodo dp
+      LEFT JOIN eventos_periodo ep ON ep.data_evento = dp.data
+      GROUP BY dp.data, dp.label
+    ),
+    ranking_empresas_quedas AS (
+      SELECT
+        ep.empresa_id,
+        MAX(ep.empresa_nome) AS empresa_nome,
+        COUNT(*)::int AS quedas
+      FROM eventos_periodo ep
+      WHERE ep.status_normalizado = 'offline'
+      GROUP BY ep.empresa_id
+      ORDER BY quedas DESC, MAX(ep.empresa_nome) NULLS LAST, ep.empresa_id
+      LIMIT 10
+    ),
+    alertas_por_dia AS (
+      SELECT
+        dp.data,
+        dp.label,
+        COUNT(ap.disparado_em)::int AS alertas
+      FROM dias_periodo dp
+      LEFT JOIN alertas_periodo ap ON ap.data_alerta = dp.data
+      GROUP BY dp.data, dp.label
+    ),
+    eventos_por_origem AS (
+      SELECT
+        origem,
+        COUNT(*)::int AS quantidade,
+        ROUND((COUNT(*)::numeric / NULLIF(SUM(COUNT(*)) OVER (), 0)) * 100, 1) AS percentual
+      FROM eventos_periodo
+      GROUP BY origem
+      ORDER BY quantidade DESC, origem
+      LIMIT 10
+    ),
+    disponibilidade_por_instancia AS (
+      SELECT
+        ep.instancia_id,
+        ep.instancia_nome,
+        MAX(ep.empresa_nome) AS empresa_nome,
+        COUNT(*) FILTER (WHERE ep.status_normalizado = 'online')::int AS eventos_online,
+        COUNT(*) FILTER (WHERE ep.status_normalizado = 'offline')::int AS eventos_offline,
+        COUNT(*) FILTER (WHERE ep.status_normalizado = 'instavel')::int AS eventos_instaveis,
+        COUNT(*) FILTER (WHERE ep.status_normalizado IN ('online', 'offline', 'instavel'))::int AS total_eventos,
+        CASE
+          WHEN COUNT(*) FILTER (WHERE ep.status_normalizado IN ('online', 'offline', 'instavel')) > 0
+            THEN ROUND(
+              COUNT(*) FILTER (WHERE ep.status_normalizado = 'online')::numeric
+              / COUNT(*) FILTER (WHERE ep.status_normalizado IN ('online', 'offline', 'instavel'))
+              * 100,
+              1
+            )
+          ELSE NULL
+        END AS disponibilidade_observada
+      FROM eventos_periodo ep
+      WHERE ep.instancia_id IS NOT NULL
+      GROUP BY ep.instancia_id, ep.instancia_nome
+      ORDER BY disponibilidade_observada ASC NULLS LAST, total_eventos DESC, ep.instancia_nome
+      LIMIT 15
+    ),
+    instancias_alerta_aberto AS (
+      SELECT
+        i.empresa_id,
+        i.empresa_nome,
+        i.instancia_id,
+        i.instancia_nome,
+        i.evolution_instance_id,
+        i.evolution_server_url,
+        i.status_normalizado AS status_atual,
+        i.evolution_status_reason,
+        i.offline_consecutivo_count,
+        i.evolution_primeira_queda_em,
+        COALESCE(uaa.disparado_em, i.evolution_ultimo_alerta_em) AS ultimo_alerta_em,
+        CASE
+          WHEN i.status_normalizado = 'offline'
+            AND i.evolution_primeira_queda_em IS NOT NULL
+            THEN GREATEST(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - i.evolution_primeira_queda_em)), 0)
+          ELSE NULL
+        END AS tempo_offline_seg,
+        uaa.severidade
+      FROM instancias i
+      LEFT JOIN ultimo_alerta_aberto uaa
+        ON uaa.instancia_id = i.instancia_id
+        AND uaa.empresa_id = i.empresa_id
+      WHERE i.alerta_aberto = true
+        OR uaa.instancia_id IS NOT NULL
+      ORDER BY tempo_offline_seg DESC NULLS LAST, COALESCE(uaa.disparado_em, i.evolution_ultimo_alerta_em) DESC NULLS LAST
+      LIMIT 20
+    ),
+    instancias_offline_agora AS (
+      SELECT
+        i.empresa_id,
+        i.empresa_nome,
+        i.instancia_id,
+        i.instancia_nome,
+        i.status_normalizado AS status,
+        i.evolution_state,
+        i.evolution_status_reason,
+        i.evolution_primeira_queda_em,
+        i.evolution_ultima_ocorrencia_em,
+        i.evolution_ultima_conferencia_em,
+        i.offline_consecutivo_count,
+        EXISTS (
+          SELECT 1
+          FROM instancias_com_alerta ica
+          WHERE ica.instancia_id = i.instancia_id
+            AND ica.empresa_id = i.empresa_id
+        ) AS alerta_aberto,
+        i.monitorar_conexao
+      FROM instancias i
+      WHERE i.status_normalizado = 'offline'
+      ORDER BY i.evolution_primeira_queda_em ASC NULLS LAST, i.evolution_ultima_ocorrencia_em DESC NULLS LAST
+      LIMIT 50
+    ),
+    historico_eventos AS (
+      SELECT
+        CONCAT_WS(':', ep.instancia_id::text, ep.evento_em::text, ep.tipo_evento, ep.origem) AS evento_id,
+        ep.evento_em AS data_hora,
+        ep.empresa_nome,
+        ep.instancia_nome,
+        ep.tipo_evento,
+        ep.origem,
+        ep.state,
+        ep.status_normalizado,
+        ep.status_reason,
+        ep.sucesso,
+        ep.erro_tipo,
+        ep.erro_detalhe_resumido
+      FROM eventos_periodo ep
+      ORDER BY ep.evento_em DESC NULLS LAST
+      LIMIT 50
+    ),
+    ultimos_alertas AS (
+      SELECT
+        CONCAT_WS(':', ap.instancia_id::text, ap.disparado_em::text, ap.tipo_alerta) AS alerta_id,
+        ap.disparado_em,
+        ap.empresa_nome,
+        ap.instancia_nome,
+        ap.tipo_alerta,
+        ap.severidade,
+        ap.status_normalizado,
+        ap.offline_consecutivo_count,
+        ap.primeira_ocorrencia_em,
+        ap.resolvido,
+        ap.resolvido_em,
+        ap.mensagem_resumida
+      FROM alertas_periodo ap
+      ORDER BY ap.disparado_em DESC NULLS LAST
+      LIMIT 50
+    ),
+    alertas_resolvidos AS (
+      SELECT
+        CONCAT_WS(':', ia.instancia_id::text, ia.disparado_em::text, ia.tipo_alerta) AS alerta_id,
+        ia.empresa_id,
+        e.empresa_nome,
+        COALESCE(NULLIF(BTRIM(ia.instancia_nome), ''), i.instancia_nome, 'Instância não informada') AS instancia_nome,
+        ia.tipo_alerta,
+        ia.severidade,
+        ia.disparado_em,
+        ia.resolvido_em,
+        CASE
+          WHEN ia.resolvido_em IS NOT NULL
+            AND ia.disparado_em IS NOT NULL
+            THEN GREATEST(EXTRACT(EPOCH FROM (ia.resolvido_em - ia.disparado_em)), 0)
+          ELSE NULL
+        END AS tempo_resolucao_seg,
+        ia.status_normalizado
+      FROM instancia_alerta ia
+      LEFT JOIN instancia i
+        ON i.instancia_id = ia.instancia_id
+        AND i.empresa_id = ia.empresa_id
+      LEFT JOIN empresa e ON e.empresa_id = ia.empresa_id
+      JOIN periodo p ON true
+      WHERE COALESCE(ia.resolvido, false) = true
+        AND COALESCE(ia.resolvido_em, ia.disparado_em) >= p.inicio_ts
+        AND COALESCE(ia.resolvido_em, ia.disparado_em) < p.fim_ts
+        ${alertaScope}
+      ORDER BY ia.resolvido_em DESC NULLS LAST, ia.disparado_em DESC NULLS LAST
+      LIMIT 50
+    ),
+    empresas_scope AS (
+      SELECT empresa_id FROM instancias
+      UNION
+      SELECT empresa_id FROM eventos_periodo WHERE empresa_id IS NOT NULL
+      UNION
+      SELECT empresa_id FROM alertas_periodo WHERE empresa_id IS NOT NULL
+    ),
+    instancias_por_empresa AS (
+      SELECT
+        empresa_id,
+        COUNT(DISTINCT instancia_id)::int AS instancias_monitoradas,
+        COUNT(DISTINCT instancia_id) FILTER (WHERE status_normalizado = 'offline')::int AS instancias_offline_agora
+      FROM instancias
+      GROUP BY empresa_id
+    ),
+    eventos_por_empresa AS (
+      SELECT
+        empresa_id,
+        COUNT(*) FILTER (WHERE status_normalizado = 'offline')::int AS eventos_offline,
+        COUNT(*) FILTER (WHERE status_normalizado = 'instavel')::int AS eventos_instaveis,
+        MAX(evento_em) AS ultima_ocorrencia
+      FROM eventos_periodo
+      GROUP BY empresa_id
+    ),
+    alertas_por_empresa AS (
+      SELECT
+        empresa_id,
+        COUNT(*)::int AS total_alertas
+      FROM alertas_periodo
+      GROUP BY empresa_id
+    ),
+    alertas_abertos_por_empresa AS (
+      SELECT
+        empresa_id,
+        COUNT(DISTINCT instancia_id)::int AS alertas_abertos
+      FROM instancias_com_alerta
+      GROUP BY empresa_id
+    ),
+    empresas_maior_instabilidade AS (
+      SELECT
+        es.empresa_id,
+        e.empresa_nome,
+        COALESCE(ipe.instancias_monitoradas, 0)::int AS instancias_monitoradas,
+        COALESCE(epe.eventos_offline, 0)::int AS eventos_offline,
+        COALESCE(epe.eventos_instaveis, 0)::int AS eventos_instaveis,
+        COALESCE(ape.total_alertas, 0)::int AS total_alertas,
+        COALESCE(aape.alertas_abertos, 0)::int AS alertas_abertos,
+        epe.ultima_ocorrencia,
+        COALESCE(ipe.instancias_offline_agora, 0)::int AS instancias_offline_agora
+      FROM empresas_scope es
+      LEFT JOIN empresa e ON e.empresa_id = es.empresa_id
+      LEFT JOIN instancias_por_empresa ipe ON ipe.empresa_id = es.empresa_id
+      LEFT JOIN eventos_por_empresa epe ON epe.empresa_id = es.empresa_id
+      LEFT JOIN alertas_por_empresa ape ON ape.empresa_id = es.empresa_id
+      LEFT JOIN alertas_abertos_por_empresa aape ON aape.empresa_id = es.empresa_id
+      WHERE COALESCE(epe.eventos_offline, 0) > 0
+        OR COALESCE(epe.eventos_instaveis, 0) > 0
+        OR COALESCE(ape.total_alertas, 0) > 0
+        OR COALESCE(aape.alertas_abertos, 0) > 0
+      ORDER BY COALESCE(epe.eventos_offline, 0) DESC, COALESCE(aape.alertas_abertos, 0) DESC, COALESCE(ape.total_alertas, 0) DESC, e.empresa_nome
+      LIMIT 20
+    )
+    SELECT
+      p.inicio_mes,
+      p.fim_mes,
+      r.instancias_online,
+      r.instancias_offline,
+      r.instancias_instaveis,
+      COALESCE((SELECT COUNT(*) FROM instancias_com_alerta), 0)::int AS alertas_abertos,
+      COALESCE(eas.total, 0)::int AS empresas_acao_suporte,
+      r.maior_tempo_offline_seg,
+      r.media_offline_consecutivo,
+      r.ultima_conferencia_em,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'status', sai.status,
+            'quantidade', sai.quantidade
+          )
+          ORDER BY sai.ordem
+        )
+        FROM status_atual_instancias sai
+      ), '[]'::json) AS status_atual_instancias,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'data', eqd.data,
+            'label', eqd.label,
+            'quedas', eqd.quedas
+          )
+          ORDER BY eqd.data
+        )
+        FROM evolucao_quedas_por_dia eqd
+      ), '[]'::json) AS evolucao_quedas_por_dia,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'empresaId', req.empresa_id,
+            'empresa', CASE
+              WHEN ${isSuperAdmin ? 'true' : 'false'} THEN COALESCE(req.empresa_nome, req.empresa_id::text)
+              ELSE 'Sua empresa'
+            END,
+            'quedas', req.quedas
+          )
+          ORDER BY req.quedas DESC, req.empresa_nome NULLS LAST, req.empresa_id
+        )
+        FROM ranking_empresas_quedas req
+      ), '[]'::json) AS ranking_empresas_quedas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'data', apd.data,
+            'label', apd.label,
+            'alertas', apd.alertas
+          )
+          ORDER BY apd.data
+        )
+        FROM alertas_por_dia apd
+      ), '[]'::json) AS alertas_por_dia,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'origem', epo.origem,
+            'quantidade', epo.quantidade,
+            'percentual', epo.percentual
+          )
+          ORDER BY epo.quantidade DESC, epo.origem
+        )
+        FROM eventos_por_origem epo
+      ), '[]'::json) AS eventos_por_origem,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'instanciaId', dpi.instancia_id,
+            'instanciaNome', dpi.instancia_nome,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN dpi.empresa_nome ELSE NULL END,
+            'eventosOnline', dpi.eventos_online,
+            'eventosOffline', dpi.eventos_offline,
+            'eventosInstaveis', dpi.eventos_instaveis,
+            'totalEventos', dpi.total_eventos,
+            'disponibilidadeObservada', dpi.disponibilidade_observada
+          )
+          ORDER BY dpi.disponibilidade_observada ASC NULLS LAST, dpi.total_eventos DESC, dpi.instancia_nome
+        )
+        FROM disponibilidade_por_instancia dpi
+      ), '[]'::json) AS disponibilidade_por_instancia,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'empresaId', iaa.empresa_id,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN iaa.empresa_nome ELSE NULL END,
+            'instanciaId', iaa.instancia_id,
+            'instanciaNome', iaa.instancia_nome,
+            'evolutionInstanceId', iaa.evolution_instance_id,
+            'statusAtual', iaa.status_atual,
+            'statusReason', iaa.evolution_status_reason,
+            'offlineConsecutivo', iaa.offline_consecutivo_count,
+            'primeiraQuedaEm', iaa.evolution_primeira_queda_em,
+            'ultimoAlertaEm', iaa.ultimo_alerta_em,
+            'tempoOfflineSeg', iaa.tempo_offline_seg,
+            'serverUrl', iaa.evolution_server_url,
+            'severidade', iaa.severidade
+          )
+          ORDER BY iaa.tempo_offline_seg DESC NULLS LAST, iaa.ultimo_alerta_em DESC NULLS LAST
+        )
+        FROM instancias_alerta_aberto iaa
+      ), '[]'::json) AS instancias_alerta_aberto,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ioa.empresa_nome ELSE NULL END,
+            'instanciaNome', ioa.instancia_nome,
+            'status', ioa.status,
+            'state', ioa.evolution_state,
+            'statusReason', ioa.evolution_status_reason,
+            'primeiraQuedaEm', ioa.evolution_primeira_queda_em,
+            'ultimaOcorrenciaEm', ioa.evolution_ultima_ocorrencia_em,
+            'ultimaConferenciaEm', ioa.evolution_ultima_conferencia_em,
+            'offlineConsecutivo', ioa.offline_consecutivo_count,
+            'alertaAberto', ioa.alerta_aberto,
+            'monitorarConexao', ioa.monitorar_conexao
+          )
+          ORDER BY ioa.evolution_primeira_queda_em ASC NULLS LAST, ioa.evolution_ultima_ocorrencia_em DESC NULLS LAST
+        )
+        FROM instancias_offline_agora ioa
+      ), '[]'::json) AS instancias_offline_agora,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'eventoId', he.evento_id,
+            'dataHora', he.data_hora,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN he.empresa_nome ELSE NULL END,
+            'instanciaNome', he.instancia_nome,
+            'tipoEvento', he.tipo_evento,
+            'origem', he.origem,
+            'state', he.state,
+            'statusNormalizado', he.status_normalizado,
+            'statusReason', he.status_reason,
+            'sucesso', he.sucesso,
+            'erroTipo', he.erro_tipo,
+            'erroDetalhe', he.erro_detalhe_resumido
+          )
+          ORDER BY he.data_hora DESC NULLS LAST
+        )
+        FROM historico_eventos he
+      ), '[]'::json) AS historico_eventos,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'alertaId', ua.alerta_id,
+            'disparadoEm', ua.disparado_em,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ua.empresa_nome ELSE NULL END,
+            'instanciaNome', ua.instancia_nome,
+            'tipoAlerta', ua.tipo_alerta,
+            'severidade', ua.severidade,
+            'statusNormalizado', ua.status_normalizado,
+            'offlineConsecutivo', ua.offline_consecutivo_count,
+            'primeiraOcorrenciaEm', ua.primeira_ocorrencia_em,
+            'resolvido', ua.resolvido,
+            'resolvidoEm', ua.resolvido_em,
+            'mensagem', ua.mensagem_resumida
+          )
+          ORDER BY ua.disparado_em DESC NULLS LAST
+        )
+        FROM ultimos_alertas ua
+      ), '[]'::json) AS ultimos_alertas,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'alertaId', ar.alerta_id,
+            'empresa', CASE WHEN ${isSuperAdmin ? 'true' : 'false'} THEN ar.empresa_nome ELSE NULL END,
+            'instanciaNome', ar.instancia_nome,
+            'tipoAlerta', ar.tipo_alerta,
+            'severidade', ar.severidade,
+            'disparadoEm', ar.disparado_em,
+            'resolvidoEm', ar.resolvido_em,
+            'tempoResolucaoSeg', ar.tempo_resolucao_seg,
+            'statusNormalizado', ar.status_normalizado
+          )
+          ORDER BY ar.resolvido_em DESC NULLS LAST, ar.disparado_em DESC NULLS LAST
+        )
+        FROM alertas_resolvidos ar
+      ), '[]'::json) AS alertas_resolvidos,
+      COALESCE((
+        SELECT json_agg(
+          json_build_object(
+            'empresaId', emi.empresa_id,
+            'empresa', CASE
+              WHEN ${isSuperAdmin ? 'true' : 'false'} THEN COALESCE(emi.empresa_nome, emi.empresa_id::text)
+              ELSE 'Sua empresa'
+            END,
+            'instanciasMonitoradas', emi.instancias_monitoradas,
+            'eventosOffline', emi.eventos_offline,
+            'eventosInstaveis', emi.eventos_instaveis,
+            'totalAlertas', emi.total_alertas,
+            'alertasAbertos', emi.alertas_abertos,
+            'ultimaOcorrencia', emi.ultima_ocorrencia,
+            'instanciasOfflineAgora', emi.instancias_offline_agora
+          )
+          ORDER BY emi.eventos_offline DESC, emi.alertas_abertos DESC, emi.total_alertas DESC, emi.empresa_nome
+        )
+        FROM empresas_maior_instabilidade emi
+      ), '[]'::json) AS empresas_maior_instabilidade
+    FROM periodo p
+    CROSS JOIN resumo r
+    CROSS JOIN empresas_acao_suporte eas
+  `, scopedPeriodParams(empresaId, isSuperAdmin, periodo))
+
+  const row = result.rows[0] || {}
+
+  return {
+    periodo: {
+      inicioMes: toDateString(row.inicio_mes),
+      fimMes: toDateString(row.fim_mes),
+      timezone: TIMEZONE,
+      preset: periodo?.preset || 'mes_atual',
+      startDate: periodo?.startDate || toDateString(row.inicio_mes),
+      endDate: periodo?.endDate || null,
+      endDateExclusive: periodo?.endDateExclusive || toDateString(row.fim_mes),
+    },
+    cards: {
+      instanciasOnline: toInt(row.instancias_online),
+      instanciasOffline: toInt(row.instancias_offline),
+      instanciasInstaveis: toInt(row.instancias_instaveis),
+      alertasAbertos: toInt(row.alertas_abertos),
+      empresasAcaoSuporte: toInt(row.empresas_acao_suporte),
+      maiorTempoOfflineSeg: toNullableNumber(row.maior_tempo_offline_seg),
+      mediaOfflineConsecutivo: toNumber(row.media_offline_consecutivo),
+      ultimaConferenciaEm: toTimestamp(row.ultima_conferencia_em),
+    },
+    graficos: {
+      statusAtualInstancias: row.status_atual_instancias || [],
+      evolucaoQuedasPorDia: row.evolucao_quedas_por_dia || [],
+      rankingEmpresasQuedas: row.ranking_empresas_quedas || [],
+      disponibilidadePorInstancia: row.disponibilidade_por_instancia || [],
+      alertasPorDia: row.alertas_por_dia || [],
+      eventosPorOrigem: row.eventos_por_origem || [],
+    },
+    tabelas: {
+      instanciasAlertaAberto: row.instancias_alerta_aberto || [],
+      instanciasOfflineAgora: row.instancias_offline_agora || [],
+      historicoEventos: row.historico_eventos || [],
+      ultimosAlertas: row.ultimos_alertas || [],
+      alertasResolvidos: row.alertas_resolvidos || [],
+      empresasMaiorInstabilidade: row.empresas_maior_instabilidade || [],
+    },
+  }
+}
+
 export const dashboardModel = {
+  async getWhatsAppEvolution({ empresaId, isSuperAdmin, periodo }) {
+    return getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo)
+  },
+
   async getIAAtendimento({ empresaId, isSuperAdmin, periodo }) {
     return getIAAtendimentoCards(empresaId, isSuperAdmin, periodo)
   },

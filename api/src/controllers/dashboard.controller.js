@@ -150,6 +150,35 @@ export async function getIAAtendimento(req, res) {
   }
 }
 
+// Buscar cards da aba WhatsApp / Evolution
+export async function getWhatsAppEvolution(req, res) {
+  try {
+    const empresaId = req.user.empresa_id
+    const nivelAcessoId = req.user.nivel_acesso_id
+    const isSuperAdmin = nivelAcessoId === SUPER_ADMIN_ID
+    const periodo = resolveDashboardPeriod(req.query)
+
+    const data = await dashboardModel.getWhatsAppEvolution({
+      empresaId,
+      isSuperAdmin,
+      periodo,
+    })
+
+    res.json({
+      success: true,
+      data,
+    })
+  } catch (error) {
+    logger.error('Erro ao buscar WhatsApp / Evolution do dashboard', { error, empresaId: req.user?.empresa_id })
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode
+        ? error.message
+        : 'Erro ao buscar WhatsApp / Evolution do dashboard',
+    })
+  }
+}
+
 // Buscar estatísticas do dashboard
 export async function getDashboardStats(req, res) {
   try {

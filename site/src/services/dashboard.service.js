@@ -61,6 +61,18 @@ export const dashboardService = {
     return response.data
   },
 
+  // Buscar cards da aba WhatsApp / Evolution
+  async getWhatsAppEvolution(dateRange) {
+    const response = await api.get('/dashboard/whatsapp-evolution', {
+      params: dateRange ? {
+        preset: dateRange.preset,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      } : undefined,
+    })
+    return response.data
+  },
+
   // Buscar estatísticas do dashboard
   async getStats() {
     const response = await api.get('/dashboard/stats')

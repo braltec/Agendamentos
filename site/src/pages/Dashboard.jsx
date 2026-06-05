@@ -15,6 +15,7 @@ import {
   TrendingUp,
   UserPlus,
   Users,
+  Wifi,
 } from 'lucide-react'
 import {
   Bar,
@@ -36,6 +37,7 @@ import AgendaDisponibilidade from './Dashboard/AgendaDisponibilidade'
 import ClientesDashboard from './Dashboard/Clientes'
 import ServicosDashboard from './Dashboard/Servicos'
 import IAAtendimento from './Dashboard/IAAtendimento'
+import WhatsAppEvolution from './Dashboard/WhatsAppEvolution'
 import DashboardDateRangeFilter from './Dashboard/DashboardDateRangeFilter'
 import { readDateRangeFromSearchParams } from '../utils/dashboardDateRange'
 
@@ -221,6 +223,7 @@ export default function Dashboard() {
     clientes: 'Clientes',
     servicos: 'Serviços',
     'ia-atendimento': 'IA / Atendimento',
+    'whatsapp-evolution': 'WhatsApp / Evolution',
   }[activeTab] || 'Visão Geral'
 
   useEffect(() => {
@@ -370,6 +373,18 @@ export default function Dashboard() {
           <Bot className="w-4 h-4" />
           IA / Atendimento
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('whatsapp-evolution')}
+          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'whatsapp-evolution'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Wifi className="w-4 h-4" />
+          WhatsApp / Evolution
+        </button>
       </div>
 
       {activeTab === 'clientes' ? (
@@ -378,6 +393,8 @@ export default function Dashboard() {
         <ServicosDashboard dateRange={dateRange} />
       ) : activeTab === 'ia-atendimento' ? (
         <IAAtendimento dateRange={dateRange} />
+      ) : activeTab === 'whatsapp-evolution' ? (
+        <WhatsAppEvolution dateRange={dateRange} />
       ) : activeTab === 'agenda-disponibilidade' ? (
         <AgendaDisponibilidade dateRange={dateRange} />
       ) : (

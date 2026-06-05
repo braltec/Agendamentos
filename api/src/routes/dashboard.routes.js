@@ -5,6 +5,7 @@ import {
   getClientes,
   getServicos,
   getIAAtendimento,
+  getWhatsAppEvolution,
   getDashboardStats,
   getProximosAgendamentos,
   getProfissionaisHoje,
@@ -32,6 +33,9 @@ router.get('/servicos', getServicos)
 
 // Buscar cards da aba IA / Atendimento
 router.get('/ia-atendimento', getIAAtendimento)
+
+// Buscar cards da aba WhatsApp / Evolution
+router.get('/whatsapp-evolution', getWhatsAppEvolution)
 
 // Buscar estatísticas do dashboard
 router.get('/stats', getDashboardStats)
