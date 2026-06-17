@@ -329,12 +329,13 @@ function StatusTooltip({ active, payload }) {
   )
 }
 
-function DiaTooltip({ active, payload, label, dataKey, labelText }) {
+function DiaTooltip({ active, payload, label, dataKey, labelText, helper }) {
   if (!active || !payload?.length) return null
 
   return (
     <TooltipContainer title={label}>
       <TooltipRow label={labelText} value={formatNumber(payload[0].payload[dataKey])} />
+      {helper && <p className="pt-1 text-xs text-gray-500">{helper}</p>}
     </TooltipContainer>
   )
 }
@@ -599,8 +600,8 @@ export default function WhatsAppEvolution({ dateRange }) {
         </ChartCard>
 
         <ChartCard
-          title="Evolução de quedas por dia"
-          description="Ocorrências offline registradas no período"
+          title="Quedas iniciadas por dia"
+          description="Novos episódios de queda identificados no período"
           loading={loading}
           isEmpty={!temQuedas}
           emptyMessage="Nenhuma queda registrada no período."
@@ -611,8 +612,16 @@ export default function WhatsAppEvolution({ dateRange }) {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="label" interval="preserveStartEnd" tick={{ fill: '#6B7280', fontSize: 12 }} />
                 <YAxis allowDecimals={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
-                <Tooltip content={<DiaTooltip dataKey="quedas" labelText="Quedas" />} />
-                <Bar dataKey="quedas" name="Quedas" fill={chartColors.red} radius={[4, 4, 0, 0]} />
+                <Tooltip
+                  content={(
+                    <DiaTooltip
+                      dataKey="quedas"
+                      labelText="Quedas iniciadas"
+                      helper="Não conta conferências repetidas da mesma queda."
+                    />
+                  )}
+                />
+                <Bar dataKey="quedas" name="Quedas iniciadas" fill={chartColors.red} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -621,8 +630,8 @@ export default function WhatsAppEvolution({ dateRange }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <ChartCard
-          title="Ranking de empresas com mais quedas"
-          description="Empresas com maior volume de eventos offline no período"
+          title="Empresas com mais quedas iniciadas"
+          description="Conta novos episódios de queda, sem duplicar conferências repetidas durante a mesma indisponibilidade."
           loading={loading}
           isEmpty={rankingEmpresasQuedas.length === 0}
           emptyMessage="Nenhuma queda registrada no período."

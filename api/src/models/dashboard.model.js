@@ -126,6 +126,79 @@ function toTimestamp(value) {
   return value
 }
 
+async function reconcileOnlineEvolutionAlerts(empresaId, isSuperAdmin) {
+  const instanciaScope = isSuperAdmin ? '' : 'AND i.empresa_id = $1'
+  const params = isSuperAdmin ? [] : [empresaId]
+
+  await pool.query(`
+    WITH online_instancias AS (
+      SELECT
+        i.instancia_id,
+        i.empresa_id,
+        NULLIF(BTRIM(i.evolution_instance_id), '') AS evolution_instance_id
+      FROM instancia i
+      WHERE COALESCE(i.monitorar_conexao, true) = true
+        AND CASE
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('online', 'open') THEN 'online'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('offline', 'close') THEN 'offline'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(i.evolution_status), ''), NULLIF(BTRIM(i.evolution_state), ''), '')) IN ('instavel', 'unstable', 'connecting') THEN 'instavel'
+          ELSE 'desconhecido'
+        END = 'online'
+        AND (
+          COALESCE(i.evolution_alerta_aberto, false) = true
+          OR EXISTS (
+            SELECT 1
+            FROM instancia_alerta ia
+            WHERE ia.empresa_id = i.empresa_id
+              AND COALESCE(ia.resolvido, false) = false
+              AND (
+                ia.instancia_id = i.instancia_id
+                OR (
+                  NULLIF(BTRIM(i.evolution_instance_id), '') IS NOT NULL
+                  AND NULLIF(BTRIM(ia.evolution_instance_id), '') = NULLIF(BTRIM(i.evolution_instance_id), '')
+                )
+              )
+          )
+        )
+        ${instanciaScope}
+    ),
+    instancias_atualizadas AS (
+      UPDATE instancia i
+      SET
+        evolution_status = 'online',
+        evolution_state = COALESCE(NULLIF(BTRIM(i.evolution_state), ''), 'open'),
+        evolution_offline_consecutivo_count = 0,
+        evolution_online_consecutivo_count = COALESCE(i.evolution_online_consecutivo_count, 0) + 1,
+        evolution_alerta_aberto = false,
+        evolution_primeira_queda_em = NULL,
+        evolution_ultima_ocorrencia_em = NOW(),
+        instancia_dt_atualizacao = NOW()
+      FROM online_instancias oi
+      WHERE i.instancia_id = oi.instancia_id
+        AND i.empresa_id = oi.empresa_id
+      RETURNING
+        i.instancia_id,
+        i.empresa_id,
+        NULLIF(BTRIM(i.evolution_instance_id), '') AS evolution_instance_id
+    )
+    UPDATE instancia_alerta ia
+    SET
+      resolvido = true,
+      resolvido_em = NOW(),
+      status_normalizado = 'online'
+    FROM instancias_atualizadas i
+    WHERE ia.empresa_id = i.empresa_id
+      AND COALESCE(ia.resolvido, false) = false
+      AND (
+        ia.instancia_id = i.instancia_id
+        OR (
+          i.evolution_instance_id IS NOT NULL
+          AND NULLIF(BTRIM(ia.evolution_instance_id), '') = i.evolution_instance_id
+        )
+      )
+  `, params)
+}
+
 async function getGestaoAgendaCards(empresaId, isSuperAdmin, periodo) {
   const startParam = isSuperAdmin ? '$1' : '$2'
   const endParam = isSuperAdmin ? '$2' : '$3'
@@ -3652,6 +3725,8 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
         (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE '${TIMEZONE}') + INTERVAL '1 month') AT TIME ZONE '${TIMEZONE}' AS fim_ts
       `
 
+  await reconcileOnlineEvolutionAlerts(empresaId, isSuperAdmin)
+
   const result = await pool.query(`
     WITH periodo AS (
       SELECT
@@ -3729,9 +3804,10 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
         ${eventoScope}
     ),
     alertas_abertos AS (
-      SELECT DISTINCT
+      SELECT
         ia.instancia_id,
-        ia.empresa_id
+        ia.empresa_id,
+        ia.evolution_instance_id
       FROM instancia_alerta ia
       WHERE COALESCE(ia.resolvido, false) = false
         ${alertaScope}
@@ -3784,14 +3860,12 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
     ),
     instancias_com_alerta AS (
       SELECT DISTINCT
-        i.instancia_id,
-        i.empresa_id
-      FROM instancias i
-      LEFT JOIN alertas_abertos aa
-        ON aa.instancia_id = i.instancia_id
-        AND aa.empresa_id = i.empresa_id
-      WHERE i.alerta_aberto = true
-        OR aa.instancia_id IS NOT NULL
+        aa.instancia_id,
+        aa.empresa_id,
+        NULLIF(BTRIM(aa.evolution_instance_id), '') AS evolution_instance_id
+      FROM alertas_abertos aa
+      WHERE aa.instancia_id IS NOT NULL
+        OR NULLIF(BTRIM(aa.evolution_instance_id), '') IS NOT NULL
     ),
     resumo AS (
       SELECT
@@ -3813,10 +3887,16 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
     ),
     empresas_acao_suporte AS (
       SELECT COUNT(DISTINCT i.empresa_id)::int AS total
-      FROM instancias i
-      LEFT JOIN instancias_com_alerta ica ON ica.instancia_id = i.instancia_id
-      WHERE i.status_normalizado = 'offline'
-        OR ica.instancia_id IS NOT NULL
+      FROM (
+        SELECT empresa_id
+        FROM instancias
+        WHERE status_normalizado = 'offline'
+          AND empresa_id IS NOT NULL
+        UNION
+        SELECT empresa_id
+        FROM alertas_abertos
+        WHERE empresa_id IS NOT NULL
+      ) i
     ),
     status_ordem AS (
       SELECT *
@@ -3836,24 +3916,146 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
       LEFT JOIN instancias i ON i.status_normalizado = so.status
       GROUP BY so.status, so.ordem
     ),
+    eventos_queda_chaves_periodo AS (
+      SELECT DISTINCT
+        COALESCE(
+          ev.instancia_id::text,
+          NULLIF(BTRIM(ev.evolution_instance_id), ''),
+          CONCAT(
+            'sem-id:',
+            COALESCE(ev.empresa_id::text, ''),
+            ':',
+            COALESCE(NULLIF(BTRIM(ev.instancia_nome), ''), '')
+          )
+        ) AS instancia_chave
+      FROM instancia_evento_log ev
+      JOIN periodo p ON true
+      WHERE COALESCE(ev.ocorreu_em, ev.recebido_em) >= p.inicio_ts
+        AND COALESCE(ev.ocorreu_em, ev.recebido_em) < p.fim_ts
+        AND COALESCE(ev.ocorreu_em, ev.recebido_em) IS NOT NULL
+        ${eventoScope}
+    ),
+    eventos_queda_periodo AS (
+      SELECT
+        COALESCE(
+          ev.instancia_id::text,
+          NULLIF(BTRIM(ev.evolution_instance_id), ''),
+          CONCAT(
+            'sem-id:',
+            COALESCE(ev.empresa_id::text, ''),
+            ':',
+            COALESCE(NULLIF(BTRIM(ev.instancia_nome), ''), '')
+          )
+        ) AS instancia_chave,
+        ev.empresa_id,
+        e.empresa_nome,
+        CASE
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('online', 'open') THEN 'online'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('offline', 'close') THEN 'offline'
+          WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('instavel', 'unstable', 'connecting') THEN 'instavel'
+          ELSE 'desconhecido'
+        END AS status_normalizado,
+        COALESCE(ev.ocorreu_em, ev.recebido_em) AS evento_em
+      FROM instancia_evento_log ev
+      LEFT JOIN empresa e ON e.empresa_id = ev.empresa_id
+      JOIN periodo p ON true
+      WHERE COALESCE(ev.ocorreu_em, ev.recebido_em) >= p.inicio_ts
+        AND COALESCE(ev.ocorreu_em, ev.recebido_em) < p.fim_ts
+        AND COALESCE(ev.ocorreu_em, ev.recebido_em) IS NOT NULL
+        ${eventoScope}
+    ),
+    eventos_queda_anterior AS (
+      SELECT DISTINCT ON (instancia_chave)
+        instancia_chave,
+        empresa_id,
+        empresa_nome,
+        status_normalizado,
+        evento_em
+      FROM (
+        SELECT
+          COALESCE(
+            ev.instancia_id::text,
+            NULLIF(BTRIM(ev.evolution_instance_id), ''),
+            CONCAT(
+              'sem-id:',
+              COALESCE(ev.empresa_id::text, ''),
+              ':',
+              COALESCE(NULLIF(BTRIM(ev.instancia_nome), ''), '')
+            )
+          ) AS instancia_chave,
+          ev.empresa_id,
+          e.empresa_nome,
+          CASE
+            WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('online', 'open') THEN 'online'
+            WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('offline', 'close') THEN 'offline'
+            WHEN LOWER(COALESCE(NULLIF(BTRIM(ev.status_normalizado), ''), NULLIF(BTRIM(ev.state), ''), '')) IN ('instavel', 'unstable', 'connecting') THEN 'instavel'
+            ELSE 'desconhecido'
+          END AS status_normalizado,
+          COALESCE(ev.ocorreu_em, ev.recebido_em) AS evento_em
+        FROM instancia_evento_log ev
+        LEFT JOIN empresa e ON e.empresa_id = ev.empresa_id
+        JOIN periodo p ON true
+        JOIN eventos_queda_chaves_periodo eqcp
+          ON eqcp.instancia_chave = COALESCE(
+            ev.instancia_id::text,
+            NULLIF(BTRIM(ev.evolution_instance_id), ''),
+            CONCAT(
+              'sem-id:',
+              COALESCE(ev.empresa_id::text, ''),
+              ':',
+              COALESCE(NULLIF(BTRIM(ev.instancia_nome), ''), '')
+            )
+          )
+        WHERE COALESCE(ev.ocorreu_em, ev.recebido_em) < p.inicio_ts
+          AND COALESCE(ev.ocorreu_em, ev.recebido_em) IS NOT NULL
+          ${eventoScope}
+      ) eventos_anteriores
+      ORDER BY instancia_chave, evento_em DESC
+    ),
+    eventos_queda_ordenados AS (
+      SELECT
+        eqb.instancia_chave,
+        eqb.empresa_id,
+        eqb.empresa_nome,
+        eqb.status_normalizado,
+        eqb.evento_em,
+        LAG(eqb.status_normalizado) OVER (
+          PARTITION BY eqb.instancia_chave
+          ORDER BY eqb.evento_em
+        ) AS status_anterior
+      FROM (
+        SELECT * FROM eventos_queda_anterior
+        UNION ALL
+        SELECT * FROM eventos_queda_periodo
+      ) eqb
+    ),
     evolucao_quedas_por_dia AS (
       SELECT
         dp.data,
         dp.label,
-        COUNT(ep.evento_em) FILTER (WHERE ep.status_normalizado = 'offline')::int AS quedas
+        COUNT(eqo.evento_em) FILTER (
+          WHERE eqo.status_normalizado = 'offline'
+            AND COALESCE(eqo.status_anterior, 'desconhecido') <> 'offline'
+        )::int AS quedas
       FROM dias_periodo dp
-      LEFT JOIN eventos_periodo ep ON ep.data_evento = dp.data
+      LEFT JOIN eventos_queda_ordenados eqo
+        ON (eqo.evento_em AT TIME ZONE '${TIMEZONE}')::date = dp.data
+        AND eqo.evento_em >= (SELECT inicio_ts FROM periodo)
+        AND eqo.evento_em < (SELECT fim_ts FROM periodo)
       GROUP BY dp.data, dp.label
     ),
     ranking_empresas_quedas AS (
       SELECT
-        ep.empresa_id,
-        MAX(ep.empresa_nome) AS empresa_nome,
+        eqo.empresa_id,
+        MAX(eqo.empresa_nome) AS empresa_nome,
         COUNT(*)::int AS quedas
-      FROM eventos_periodo ep
-      WHERE ep.status_normalizado = 'offline'
-      GROUP BY ep.empresa_id
-      ORDER BY quedas DESC, MAX(ep.empresa_nome) NULLS LAST, ep.empresa_id
+      FROM eventos_queda_ordenados eqo
+      WHERE eqo.evento_em >= (SELECT inicio_ts FROM periodo)
+        AND eqo.evento_em < (SELECT fim_ts FROM periodo)
+        AND eqo.status_normalizado = 'offline'
+        AND COALESCE(eqo.status_anterior, 'desconhecido') <> 'offline'
+      GROUP BY eqo.empresa_id
+      ORDER BY quedas DESC, MAX(eqo.empresa_nome) NULLS LAST, eqo.empresa_id
       LIMIT 10
     ),
     alertas_por_dia AS (
@@ -3924,8 +4126,7 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
       LEFT JOIN ultimo_alerta_aberto uaa
         ON uaa.instancia_id = i.instancia_id
         AND uaa.empresa_id = i.empresa_id
-      WHERE i.alerta_aberto = true
-        OR uaa.instancia_id IS NOT NULL
+      WHERE uaa.instancia_id IS NOT NULL
       ORDER BY tempo_offline_seg DESC NULLS LAST, COALESCE(uaa.disparado_em, i.evolution_ultimo_alerta_em) DESC NULLS LAST
       LIMIT 20
     ),
@@ -3945,8 +4146,14 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
         EXISTS (
           SELECT 1
           FROM instancias_com_alerta ica
-          WHERE ica.instancia_id = i.instancia_id
-            AND ica.empresa_id = i.empresa_id
+          WHERE ica.empresa_id = i.empresa_id
+            AND (
+              ica.instancia_id = i.instancia_id
+              OR (
+                ica.evolution_instance_id IS NOT NULL
+                AND ica.evolution_instance_id = NULLIF(BTRIM(i.evolution_instance_id), '')
+              )
+            )
         ) AS alerta_aberto,
         i.monitorar_conexao
       FROM instancias i
@@ -4054,8 +4261,8 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
     alertas_abertos_por_empresa AS (
       SELECT
         empresa_id,
-        COUNT(DISTINCT instancia_id)::int AS alertas_abertos
-      FROM instancias_com_alerta
+        COUNT(*)::int AS alertas_abertos
+      FROM alertas_abertos
       GROUP BY empresa_id
     ),
     empresas_maior_instabilidade AS (
@@ -4088,7 +4295,7 @@ async function getWhatsAppEvolutionCards(empresaId, isSuperAdmin, periodo) {
       r.instancias_online,
       r.instancias_offline,
       r.instancias_instaveis,
-      COALESCE((SELECT COUNT(*) FROM instancias_com_alerta), 0)::int AS alertas_abertos,
+      COALESCE((SELECT COUNT(*) FROM alertas_abertos), 0)::int AS alertas_abertos,
       COALESCE(eas.total, 0)::int AS empresas_acao_suporte,
       r.maior_tempo_offline_seg,
       r.media_offline_consecutivo,
