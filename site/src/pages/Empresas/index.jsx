@@ -81,11 +81,11 @@ export default function Empresas() {
   
   // Renderizar card de empresa (usado em ambas as visualizações)
   const renderEmpresaCard = (empresa) => (
-    <Card key={empresa.empresa_id}>
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h3 className="text-xl font-semibold text-gray-900">
+    <Card key={empresa.empresa_id} className="p-4 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="min-w-0 break-words text-lg font-semibold text-gray-900 sm:text-xl">
               {empresa.empresa_nome}
             </h3>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -130,11 +130,11 @@ export default function Empresas() {
           </div>
         </div>
 
-        <div className="flex gap-2 ml-4 flex-col">
+        <div className="flex w-full flex-col gap-2 sm:w-auto lg:ml-4">
           <Button
             size="sm"
             onClick={() => navigate(`/configuracoes/${empresa.empresa_id}`)}
-            className="flex items-center gap-2"
+            className="w-full sm:w-auto"
           >
             <Settings className="w-4 h-4" />
             Configurar
@@ -146,6 +146,7 @@ export default function Empresas() {
               empresa.empresa_id, 
               empresa.status === 'ativa' ? 'inativa' : 'ativa'
             )}
+            className="w-full sm:w-auto"
           >
             {empresa.status === 'ativa' ? 'Desativar' : 'Ativar'}
           </Button>
@@ -163,25 +164,25 @@ export default function Empresas() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="page-heading">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gestão de Empresas</h1>
-          <p className="text-gray-600 mt-1">Cadastre e gerencie empresas clientes</p>
+          <h1 className="page-title">Gestão de Empresas</h1>
+          <p className="page-subtitle">Cadastre e gerencie empresas clientes</p>
         </div>
-        <Button onClick={() => setModalAberto(true)}>
+        <Button onClick={() => setModalAberto(true)} className="w-full sm:w-auto">
           + Nova Empresa
         </Button>
       </div>
 
       {/* Toggle Visualização por Revenda (apenas Super Admin) */}
       {isSuperAdmin && (
-        <Card className="bg-blue-50 border-blue-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <Card className="border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-3 sm:items-center">
               <Users className="w-5 h-5 text-blue-600" />
-              <div>
+              <div className="min-w-0">
                 <h3 className="font-semibold text-blue-900">Visualização por Revenda</h3>
                 <p className="text-sm text-blue-700">Veja quais revendas cadastraram quais empresas</p>
               </div>
@@ -190,6 +191,7 @@ export default function Empresas() {
               variant={visualizacaoPorRevenda ? "primary" : "secondary"}
               size="sm"
               onClick={() => setVisualizacaoPorRevenda(!visualizacaoPorRevenda)}
+              className="w-full sm:w-auto"
             >
               {visualizacaoPorRevenda ? 'Mostrar Lista Normal' : 'Agrupar por Revenda'}
             </Button>
@@ -199,14 +201,14 @@ export default function Empresas() {
 
       {/* Filtros (apenas na visualização normal) */}
       {!visualizacaoPorRevenda && (
-        <Card>
+        <Card className="p-4">
           <div className="flex gap-4">
             <input
               type="text"
               placeholder="Buscar por nome ou contato..."
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="min-h-11 w-full flex-1 rounded-lg border border-gray-300 px-4 py-2 text-base focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:text-sm"
             />
           </div>
         </Card>
@@ -214,26 +216,26 @@ export default function Empresas() {
 
       {/* Estatísticas */}
       {visualizacaoPorRevenda && dadosRevenda ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">{dadosRevenda.estatisticas.total_revendas}</div>
               <div className="text-sm text-gray-600 mt-1">Total de Revendas</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-green-600">{dadosRevenda.estatisticas.total_empresas_com_revenda}</div>
               <div className="text-sm text-gray-600 mt-1">Empresas com Revenda</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-orange-600">{dadosRevenda.estatisticas.total_empresas_sem_revenda}</div>
               <div className="text-sm text-gray-600 mt-1">Empresas sem Revenda</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-purple-600">{dadosRevenda.estatisticas.total_empresas}</div>
               <div className="text-sm text-gray-600 mt-1">Total de Empresas</div>
@@ -241,14 +243,14 @@ export default function Empresas() {
           </Card>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-6">
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">{empresas.length}</div>
               <div className="text-sm text-gray-600 mt-1">Total de Empresas</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-green-600">
                 {empresas.filter(e => e.status === 'ativa').length}
@@ -256,7 +258,7 @@ export default function Empresas() {
               <div className="text-sm text-gray-600 mt-1">Empresas Ativas</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-red-600">
                 {empresas.filter(e => e.status === 'inativa').length}
@@ -264,7 +266,7 @@ export default function Empresas() {
               <div className="text-sm text-gray-600 mt-1">Empresas Inativas</div>
             </div>
           </Card>
-          <Card>
+          <Card className="p-4 sm:p-5">
             <div className="text-center">
               <div className="text-3xl font-bold text-purple-600">
                 {empresas.reduce((acc, e) => acc + parseInt(e.total_agendamentos || 0), 0)}
@@ -280,17 +282,17 @@ export default function Empresas() {
         <div className="space-y-6">
           {/* Revendas e suas empresas */}
           {dadosRevenda.revendas.map((revenda) => (
-            <Card key={revenda.revenda_id} className="bg-gradient-to-r from-blue-50 to-white">
+            <Card key={revenda.revenda_id} className="bg-gradient-to-r from-blue-50 to-white p-4 sm:p-5">
               <div className="mb-4 pb-4 border-b border-blue-200">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
                   <Users className="w-6 h-6 text-blue-600" />
-                  <div>
-                    <h2 className="text-2xl font-bold text-blue-900">{revenda.revenda_nome}</h2>
-                    <p className="text-sm text-blue-700">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="break-words text-xl font-bold text-blue-900 sm:text-2xl">{revenda.revenda_nome}</h2>
+                    <p className="break-words text-sm text-blue-700">
                       @{revenda.revenda_login} • {revenda.revenda_email}
                     </p>
                   </div>
-                  <span className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium">
+                  <span className="w-fit px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium md:ml-auto">
                     {revenda.empresas.length} {revenda.empresas.length === 1 ? 'empresa' : 'empresas'}
                   </span>
                 </div>
@@ -303,17 +305,17 @@ export default function Empresas() {
 
           {/* Empresas sem revenda */}
           {dadosRevenda.empresas_sem_revenda.length > 0 && (
-            <Card className="bg-gradient-to-r from-gray-50 to-white">
+            <Card className="bg-gradient-to-r from-gray-50 to-white p-4 sm:p-5">
               <div className="mb-4 pb-4 border-b border-gray-200">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
                   <Users className="w-6 h-6 text-gray-600" />
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Empresas sem Revenda</h2>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Empresas sem Revenda</h2>
                     <p className="text-sm text-gray-700">
                       Empresas criadas diretamente ou por outros perfis
                     </p>
                   </div>
-                  <span className="ml-auto px-4 py-2 bg-gray-600 text-white rounded-full text-sm font-medium">
+                  <span className="w-fit px-4 py-2 bg-gray-600 text-white rounded-full text-sm font-medium md:ml-auto">
                     {dadosRevenda.empresas_sem_revenda.length} {dadosRevenda.empresas_sem_revenda.length === 1 ? 'empresa' : 'empresas'}
                   </span>
                 </div>
@@ -332,7 +334,7 @@ export default function Empresas() {
           </div>
 
           {empresasFiltradas.length === 0 && (
-            <Card>
+            <Card className="p-4 sm:p-5">
               <div className="text-center py-12">
                 <p className="text-gray-500">Nenhuma empresa encontrada</p>
               </div>
@@ -354,7 +356,6 @@ export default function Empresas() {
     </div>
   )
 }
-
 
 
 

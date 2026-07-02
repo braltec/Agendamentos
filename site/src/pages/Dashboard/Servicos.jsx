@@ -147,7 +147,7 @@ function TableCard({ title, children, emptyMessage, isEmpty, loading }) {
         ) : isEmpty ? (
           <div className="py-10 text-center text-gray-500">{emptyMessage}</div>
         ) : (
-          <div className="overflow-x-auto">{children}</div>
+          <div className="table-scroll">{children}</div>
         )}
       </CardBody>
     </Card>

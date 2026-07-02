@@ -4,13 +4,13 @@ import { Plus } from 'lucide-react'
 
 export default function AgendamentosPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="page-shell">
+      <div className="page-heading">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Agendamentos</h1>
-          <p className="text-gray-600 mt-1">Gerencie todos os agendamentos</p>
+          <h1 className="page-title">Agendamentos</h1>
+          <p className="page-subtitle">Gerencie todos os agendamentos</p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto">
           <Plus className="w-5 h-5" />
           Novo Agendamento
         </Button>
@@ -27,7 +27,6 @@ export default function AgendamentosPage() {
     </div>
   )
 }
-
 
 
 

@@ -20,19 +20,19 @@ export default Card
 
 export function CardHeader({ children, className = '' }) {
   return (
-    <div className={clsx('px-6 py-4 border-b border-[var(--color-border)]', className)}>
+    <div className={clsx('px-4 py-4 sm:px-6 border-b border-[var(--color-border)]', className)}>
       {children}
     </div>
   )
 }
 
 export function CardBody({ children, className = '' }) {
-  return <div className={clsx('px-6 py-4', className)}>{children}</div>
+  return <div className={clsx('px-4 py-4 sm:px-6', className)}>{children}</div>
 }
 
 export function CardFooter({ children, className = '' }) {
   return (
-    <div className={clsx('px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-surface-muted)]', className)}>
+    <div className={clsx('px-4 py-4 sm:px-6 border-t border-[var(--color-border)] bg-[var(--color-surface-muted)]', className)}>
       {children}
     </div>
   )

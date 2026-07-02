@@ -61,7 +61,7 @@ export default function Etapa2Horarios({ dados, atualizarDados, proximaEtapa, et
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Calendar className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Horários de Funcionamento</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Horários de Funcionamento</h2>
         </div>
         <p className="text-gray-600">
           Defina os horários de funcionamento para cada dia da semana
@@ -72,7 +72,7 @@ export default function Etapa2Horarios({ dados, atualizarDados, proximaEtapa, et
         {horarios.map((horario, index) => (
           <div
             key={horario.dia_semana}
-            className={`flex items-center gap-4 p-4 rounded-lg border-2 transition-colors ${
+            className={`flex flex-col gap-4 p-4 rounded-lg border-2 transition-colors sm:flex-row sm:items-center ${
               horario.ativo ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
             }`}
           >
@@ -83,7 +83,7 @@ export default function Etapa2Horarios({ dados, atualizarDados, proximaEtapa, et
               className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
             />
             
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div className="grid w-full flex-1 grid-cols-1 gap-4 md:grid-cols-3 md:items-center">
               <div className="font-medium text-gray-900">
                 {horario.dia_nome}
               </div>
@@ -115,12 +115,12 @@ export default function Etapa2Horarios({ dados, atualizarDados, proximaEtapa, et
           </div>
         ))}
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button type="button" onClick={etapaAnterior} variant="outline">
+        <div className="flex flex-col-reverse gap-3 pt-6 border-t sm:flex-row sm:justify-between">
+          <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa
@@ -133,7 +133,6 @@ export default function Etapa2Horarios({ dados, atualizarDados, proximaEtapa, et
     </div>
   )
 }
-
 
 
 

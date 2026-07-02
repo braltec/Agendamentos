@@ -107,15 +107,17 @@ export default function VendedorModal({ vendedor, orgId, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="max-w-lg w-full">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
+    <div className="modal-backdrop">
+      <Card className="modal-panel max-w-lg p-4 sm:p-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">
             {vendedor ? 'Editar Vendedor' : 'Novo Vendedor'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="icon-action text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Fechar"
           >
             <X className="w-6 h-6" />
           </button>
@@ -216,16 +218,17 @@ export default function VendedorModal({ vendedor, orgId, onClose }) {
           </div>
 
           {/* Botões */}
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="secondary"
               onClick={onClose}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading ? 'Salvando...' : vendedor ? 'Atualizar' : 'Criar'}
             </Button>
           </div>
@@ -234,6 +237,5 @@ export default function VendedorModal({ vendedor, orgId, onClose }) {
     </div>
   )
 }
-
 
 

@@ -86,8 +86,8 @@ export default function Organizacoes() {
 
   if (!isSuperAdmin) {
     return (
-      <div className="p-6">
-        <Card className="bg-red-50 border-red-200">
+      <div className="page-shell">
+        <Card className="border-red-200 bg-red-50 p-4">
           <div className="flex items-center gap-3 text-red-800">
             <X className="w-5 h-5" />
             <p>Acesso negado. Apenas Super Admin pode visualizar organizações.</p>
@@ -106,21 +106,21 @@ export default function Organizacoes() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-heading">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Organizações de Revenda</h1>
-          <p className="text-gray-600 mt-1">Gerencie organizações e seus vendedores</p>
+          <h1 className="page-title">Organizações de Revenda</h1>
+          <p className="page-subtitle">Gerencie organizações e seus vendedores</p>
         </div>
-        <Button onClick={abrirModalCriar} className="flex items-center gap-2">
+        <Button onClick={abrirModalCriar} className="w-full sm:w-auto">
           <Plus className="w-5 h-5" />
           Nova Organização
         </Button>
       </div>
 
       {/* Filtro */}
-      <Card>
+      <Card className="p-4">
         <Input
           placeholder="Buscar por nome, razão social ou CNPJ..."
           value={filtro}
@@ -130,8 +130,8 @@ export default function Organizacoes() {
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-blue-50 border-blue-200">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-600 font-medium">Total de Organizações</p>
@@ -140,7 +140,7 @@ export default function Organizacoes() {
             <Building2 className="w-8 h-8 text-blue-600" />
           </div>
         </Card>
-        <Card className="bg-green-50 border-green-200">
+        <Card className="border-green-200 bg-green-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-600 font-medium">Organizações Ativas</p>
@@ -151,7 +151,7 @@ export default function Organizacoes() {
             <TrendingUp className="w-8 h-8 text-green-600" />
           </div>
         </Card>
-        <Card className="bg-purple-50 border-purple-200">
+        <Card className="border-purple-200 bg-purple-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Total de Usuários</p>
@@ -162,7 +162,7 @@ export default function Organizacoes() {
             <Users className="w-8 h-8 text-purple-600" />
           </div>
         </Card>
-        <Card className="bg-orange-50 border-orange-200">
+        <Card className="border-orange-200 bg-orange-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-orange-600 font-medium">Total de Empresas</p>
@@ -177,7 +177,7 @@ export default function Organizacoes() {
 
       {/* Lista de Organizações */}
       {organizacoesFiltradas.length === 0 ? (
-        <Card>
+        <Card className="p-4">
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 text-lg">
@@ -193,11 +193,11 @@ export default function Organizacoes() {
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {organizacoesFiltradas.map((org) => (
-            <Card key={org.org_revenda_id}>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-xl font-semibold text-gray-900">
+            <Card key={org.org_revenda_id} className="p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex flex-wrap items-center gap-3">
+                    <h3 className="break-words text-lg font-semibold text-gray-900 sm:text-xl">
                       {org.org_nome}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -223,7 +223,7 @@ export default function Organizacoes() {
                     </p>
                   )}
 
-                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                       <p className="text-xs text-gray-500">Usuários</p>
                       <p className="text-lg font-semibold text-gray-900">
@@ -254,12 +254,12 @@ export default function Organizacoes() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 ml-4 flex-col">
+                <div className="flex w-full flex-col gap-2 sm:w-auto lg:ml-4">
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => abrirModalDetalhes(org)}
-                    className="flex items-center gap-2"
+                    className="w-full sm:w-auto"
                   >
                     <Eye className="w-4 h-4" />
                     Detalhes
@@ -267,7 +267,7 @@ export default function Organizacoes() {
                   <Button
                     size="sm"
                     onClick={() => abrirModalEditar(org)}
-                    className="flex items-center gap-2"
+                    className="w-full sm:w-auto"
                   >
                     <Edit className="w-4 h-4" />
                     Editar
@@ -279,6 +279,7 @@ export default function Organizacoes() {
                       org.org_revenda_id,
                       org.org_status === 'ativa' ? 'inativa' : 'ativa'
                     )}
+                    className="w-full sm:w-auto"
                   >
                     {org.org_status === 'ativa' ? 'Desativar' : 'Ativar'}
                   </Button>
@@ -306,6 +307,5 @@ export default function Organizacoes() {
     </div>
   )
 }
-
 
 

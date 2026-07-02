@@ -34,11 +34,11 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+    <div className="modal-backdrop">
+      <Card className="modal-panel max-w-4xl p-4 sm:p-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="break-words text-xl font-bold text-gray-900 sm:text-2xl">
               {organizacao.org_nome}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -46,15 +46,17 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="icon-action shrink-0 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Fechar"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-5 h-5 text-blue-600" />
@@ -95,8 +97,9 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
 
         {/* Abas */}
         <div className="border-b border-gray-200 mb-6">
-          <div className="flex justify-between items-center">
-            <div className="flex gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="table-scroll">
+              <div className="flex min-w-max gap-4">
               <button
                 onClick={() => setAbaAtiva('usuarios')}
                 className={`pb-3 px-1 font-medium transition-colors ${
@@ -117,12 +120,13 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
               >
                 Empresas ({empresas.length})
               </button>
+              </div>
             </div>
             {abaAtiva === 'usuarios' && (
               <Button
                 size="sm"
                 onClick={() => setModalUsuarioAberto(true)}
-                className="flex items-center gap-2"
+                className="w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4" />
                 Novo Usuário
@@ -151,10 +155,10 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
                       key={usuario.login_id}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-gray-900">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <h4 className="break-words font-semibold text-gray-900">
                               {usuario.nome}
                             </h4>
                             {usuario.is_gestor_revenda && (
@@ -174,7 +178,7 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
                             {usuario.total_empresas_cadastradas || 0}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-xs text-gray-500">
                             Criado em
                           </p>
@@ -202,10 +206,10 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
                       key={empresa.empresa_id}
                       className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-gray-900">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <h4 className="break-words font-semibold text-gray-900">
                               {empresa.empresa_nome}
                             </h4>
                             <span className={`px-2 py-1 text-xs font-medium rounded ${
@@ -223,7 +227,7 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
                               <span className="ml-2 text-blue-600 text-xs">• Gestor</span>
                             )}
                           </p>
-                          <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                          <div className="mt-2 flex flex-col gap-1 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:gap-4">
                             <span>
                               <span className="font-medium">Usuários:</span> {empresa.total_usuarios || 0}
                             </span>
@@ -235,7 +239,7 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
                             </span>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-xs text-gray-500">
                             Cadastrado em
                           </p>
@@ -253,8 +257,8 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
         )}
 
         {/* Botão Fechar */}
-        <div className="flex justify-end mt-6 pt-6 border-t border-gray-200">
-          <Button onClick={onClose}>
+        <div className="mt-6 flex border-t border-gray-200 pt-6 sm:justify-end">
+          <Button onClick={onClose} className="w-full sm:w-auto">
             Fechar
           </Button>
         </div>
@@ -273,4 +277,3 @@ export default function DetalhesOrganizacaoModal({ organizacao, onClose }) {
     </div>
   )
 }
-

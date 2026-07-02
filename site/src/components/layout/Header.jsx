@@ -1,9 +1,9 @@
-import { Bell, LogOut, Monitor, Moon, Sun, User } from 'lucide-react'
+import { Bell, LogOut, Menu, Monitor, Moon, Sun, User } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import Button from '../ui/Button'
 
-export default function Header() {
+export default function Header({ onMenuClick }) {
   const { user, logout } = useAuth()
   const { themePreference, setTheme } = useTheme()
 
@@ -14,15 +14,23 @@ export default function Header() {
   ]
 
   return (
-    <header className="h-16 bg-[var(--color-surface)] border-b border-[var(--color-border)] flex items-center justify-between px-6">
-      <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">
+    <header className="flex min-h-16 items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 sm:px-5 lg:px-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          className="icon-action shrink-0 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] xl:hidden"
+          onClick={onMenuClick}
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <h2 className="truncate text-sm font-semibold text-[var(--color-text)] sm:text-lg">
           Bem-vindo, {user?.nome || 'Usuário'}
         </h2>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="hidden items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1 sm:flex">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+        <div className="hidden items-center gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1 md:flex">
           {themeOptions.map((option) => {
             const Icon = option.icon
             const isActive = themePreference === option.value
@@ -53,7 +61,7 @@ export default function Header() {
           id="theme-preference"
           value={themePreference}
           onChange={(event) => setTheme(event.target.value)}
-          className="sm:hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)]"
+          className="hidden min-h-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-sm text-[var(--color-text)] sm:block md:hidden"
         >
           {themeOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -61,18 +69,20 @@ export default function Header() {
         </select>
 
         {/* Notificações */}
-        <button className="p-2 hover:bg-[var(--color-surface-muted)] rounded-lg transition-colors relative">
-          <Bell className="w-5 h-5 text-[var(--color-text-muted)]" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full"></span>
+        <button className="icon-action relative hover:bg-[var(--color-surface-muted)]">
+          <Bell className="h-5 w-5 text-[var(--color-text-muted)]" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger"></span>
         </button>
 
         {/* Perfil */}
-        <div className="flex items-center gap-3 pl-4 border-l border-[var(--color-border)]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2 border-l border-[var(--color-border)] pl-2 sm:gap-3 sm:pl-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
+              <User className="h-5 w-5 text-white" />
             </div>
-            <span className="text-sm font-medium text-[var(--color-text-muted)]">{user?.nome}</span>
+            <span className="hidden max-w-36 truncate text-sm font-medium text-[var(--color-text-muted)] lg:inline">
+              {user?.nome}
+            </span>
           </div>
 
           <Button
@@ -80,15 +90,15 @@ export default function Header() {
             size="sm"
             onClick={logout}
             className="text-[var(--color-text-muted)]"
+            title="Sair"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
     </header>
   )
 }
-
 
 
 

@@ -133,7 +133,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Endereço</h3>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
           <Input
             label="CEP *"
             name="cep"
@@ -143,20 +143,20 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
             placeholder="00000-000"
             maxLength="8"
             required
-            className="w-40"
+            className="w-full sm:w-40"
           />
           <Button
             type="button"
             variant="secondary"
             onClick={buscarCEP}
-            className="mt-6"
+            className="w-full sm:mt-6 sm:w-auto"
           >
             Buscar
           </Button>
         </div>
         
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="sm:col-span-2">
             <Input
               label="Logradouro *"
               name="logradouro"
@@ -181,7 +181,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
           onChange={handleChange}
         />
         
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Input
             label="Bairro *"
             name="bairro"
@@ -268,7 +268,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
           </div>
 
           {formData.criar_contrato && (
-            <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Input
                 label="Nome do Plano"
                 name="contrato_nome"
@@ -317,7 +317,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
         </div>
 
         <div className="flex justify-center">
-          <Button onClick={onSuccess}>
+          <Button onClick={onSuccess} className="w-full sm:w-auto">
             Concluir
           </Button>
         </div>
@@ -326,15 +326,17 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-2xl">
+        <div className="p-4 sm:p-6">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Nova Empresa</h2>
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="text-xl font-bold sm:text-2xl">Nova Empresa</h2>
             <button
+              type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
+              className="icon-action text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              aria-label="Fechar"
             >
               ✕
             </button>
@@ -368,11 +370,12 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
 
             {/* Buttons */}
             {etapa < 4 && (
-              <div className="flex justify-between mt-6 pt-6 border-t">
+              <div className="mt-6 flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-between">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => etapa > 1 ? setEtapa(etapa - 1) : onClose()}
+                  className="w-full sm:w-auto"
                 >
                   {etapa > 1 ? 'Voltar' : 'Cancelar'}
                 </Button>
@@ -381,6 +384,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
                   <Button
                     type="button"
                     onClick={() => setEtapa(etapa + 1)}
+                    className="w-full sm:w-auto"
                   >
                     Próximo
                   </Button>
@@ -388,6 +392,7 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
                   <Button
                     type="submit"
                     disabled={loading}
+                    className="w-full sm:w-auto"
                   >
                     {loading ? 'Criando...' : 'Criar Empresa'}
                   </Button>
@@ -400,8 +405,6 @@ export default function NovaEmpresaModal({ onClose, onSuccess }) {
     </div>
   )
 }
-
-
 
 
 

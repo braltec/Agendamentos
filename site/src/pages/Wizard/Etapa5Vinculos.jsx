@@ -94,7 +94,7 @@ export default function Etapa5Vinculos({ dados, atualizarDados, proximaEtapa, et
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Link2 className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Vincular Serviços aos Profissionais</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Vincular Serviços aos Profissionais</h2>
         </div>
         <p className="text-gray-600">
           Defina quais serviços cada profissional pode realizar e personalize valores/duração
@@ -138,7 +138,7 @@ export default function Etapa5Vinculos({ dados, atualizarDados, proximaEtapa, et
                         </div>
                         
                         {vinculo.ativo && (
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                               <label className="block text-xs text-gray-600 mb-1">
                                 Duração (min)
@@ -186,12 +186,12 @@ export default function Etapa5Vinculos({ dados, atualizarDados, proximaEtapa, et
           </div>
         ))}
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button type="button" onClick={etapaAnterior} variant="outline">
+        <div className="flex flex-col-reverse gap-3 pt-6 border-t sm:flex-row sm:justify-between">
+          <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa
@@ -204,7 +204,6 @@ export default function Etapa5Vinculos({ dados, atualizarDados, proximaEtapa, et
     </div>
   )
 }
-
 
 
 

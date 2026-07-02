@@ -64,13 +64,13 @@ export default function DashboardDateRangeFilter({ value, onChange }) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-col gap-1 text-sm text-gray-600">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:auto-cols-max lg:grid-flow-col lg:grid-cols-none lg:items-end">
+          <label className="flex min-w-0 flex-col gap-1 text-sm text-gray-600">
             <span>Preset</span>
             <select
               value={value.preset}
               onChange={handlePresetChange}
-              className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
             >
               {DASHBOARD_PERIOD_PRESETS.map((preset) => (
                 <option key={preset.value} value={preset.value}>
@@ -82,28 +82,28 @@ export default function DashboardDateRangeFilter({ value, onChange }) {
 
           {value.preset === 'personalizado' && (
             <>
-              <label className="flex flex-col gap-1 text-sm text-gray-600">
+              <label className="flex min-w-0 flex-col gap-1 text-sm text-gray-600">
                 <span>Data inicial</span>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(event) => setCustomStartDate(event.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  className="min-h-11 w-full rounded-lg border border-gray-300 px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
                 />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-gray-600">
+              <label className="flex min-w-0 flex-col gap-1 text-sm text-gray-600">
                 <span>Data final</span>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(event) => setCustomEndDate(event.target.value)}
-                  className="h-10 rounded-lg border border-gray-300 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  className="min-h-11 w-full rounded-lg border border-gray-300 px-3 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
                 />
               </label>
               <button
                 type="button"
                 onClick={applyCustomRange}
-                className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 sm:col-span-2 lg:col-span-1"
               >
                 Aplicar
               </button>

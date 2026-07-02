@@ -43,7 +43,7 @@ export default function Etapa6WhatsApp({ dados, atualizarDados, proximaEtapa, et
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <MessageCircle className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Configuração WhatsApp</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Configuração WhatsApp</h2>
         </div>
         <p className="text-gray-600">
           Configure a instância do WhatsApp Evolution API
@@ -67,7 +67,7 @@ export default function Etapa6WhatsApp({ dados, atualizarDados, proximaEtapa, et
           <label className="block text-sm font-medium text-gray-700 mb-2">
             UUID da Instância Evolution *
           </label>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               type="text"
               value={formData.instancia_id}
@@ -83,7 +83,7 @@ export default function Etapa6WhatsApp({ dados, atualizarDados, proximaEtapa, et
                 type="button"
                 onClick={handleCopy}
                 variant="outline"
-                className="px-3"
+                className="w-full px-3 sm:w-auto"
               >
                 {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
               </Button>
@@ -120,7 +120,7 @@ export default function Etapa6WhatsApp({ dados, atualizarDados, proximaEtapa, et
             onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
             placeholder="Adicione observações sobre esta instância..."
             rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
           />
           <p className="mt-1 text-sm text-gray-500">
             Informações adicionais (opcional)
@@ -137,12 +137,12 @@ export default function Etapa6WhatsApp({ dados, atualizarDados, proximaEtapa, et
           </p>
         </div>
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button type="button" onClick={etapaAnterior} variant="outline">
+        <div className="flex flex-col-reverse gap-3 pt-6 border-t sm:flex-row sm:justify-between">
+          <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa

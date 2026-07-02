@@ -302,21 +302,22 @@ export default function Dashboard() {
   ), [tabelas.servicosMaiorFaturamento])
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <div className="flex flex-col gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">{activeTabTitle}</p>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle">{activeTabTitle}</p>
         </div>
       </div>
 
       <DashboardDateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
 
-      <div className="flex flex-wrap gap-2 border-b border-gray-200">
+      <div className="table-scroll border-b border-gray-200">
+        <div className="flex min-w-max gap-2">
         <button
           type="button"
           onClick={() => setActiveTab('visao-geral')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'visao-geral'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -328,7 +329,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setActiveTab('agenda-disponibilidade')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'agenda-disponibilidade'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -340,7 +341,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setActiveTab('clientes')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'clientes'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -352,7 +353,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setActiveTab('servicos')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'servicos'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -364,7 +365,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setActiveTab('ia-atendimento')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'ia-atendimento'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -376,7 +377,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setActiveTab('whatsapp-evolution')}
-          className={`inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+          className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
             activeTab === 'whatsapp-evolution'
               ? 'border-blue-600 text-blue-700'
               : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -385,6 +386,7 @@ export default function Dashboard() {
           <Wifi className="w-4 h-4" />
           WhatsApp / Evolution
         </button>
+        </div>
       </div>
 
       {activeTab === 'clientes' ? (
@@ -410,7 +412,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 xl:gap-6">
         <MetricCard
           title="Agendamentos ativos"
           value={loading ? '...' : formatNumber(cards.agendamentosHoje)}
@@ -455,7 +457,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
         <MetricCard
           title="Clientes novos"
           value={loading ? '...' : formatNumber(cards.clientesNovosMes)}
@@ -794,7 +796,7 @@ export default function Dashboard() {
             emptyMessage="Ainda não há dados para este período."
           >
             {servicosMaiorFaturamento.map((servico, index) => (
-              <div key={servico.servicosId} className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 p-3">
+              <div key={servico.servicosId} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <p className="font-medium text-gray-900">
                     {index + 1}. {servico.servicosNome}
@@ -803,7 +805,7 @@ export default function Dashboard() {
                     {formatNumber(servico.quantidade)} serviço(s)
                   </p>
                 </div>
-                <p className="shrink-0 font-semibold text-orange-600">{formatCurrency(servico.receita)}</p>
+                <p className="font-semibold text-orange-600 sm:shrink-0">{formatCurrency(servico.receita)}</p>
               </div>
             ))}
           </SimpleList>
@@ -824,14 +826,14 @@ export default function Dashboard() {
                 emptyMessage="Ainda não há dados para este período."
               >
                 {tabelas.empresasMaiorMovimento.map((empresa) => (
-                  <div key={empresa.empresaId} className="flex items-center justify-between gap-4 rounded-lg bg-gray-50 p-3">
+                  <div key={empresa.empresaId} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900">{empresa.empresaNome}</p>
                       <p className="text-sm text-gray-500">
                         {formatNumber(empresa.agendamentosMes)} agendamento(s), {formatNumber(empresa.cancelamentosMes)} cancelado(s)
                       </p>
                     </div>
-                    <p className="shrink-0 font-semibold text-orange-600">
+                    <p className="font-semibold text-orange-600 sm:shrink-0">
                       {formatCurrency(cards.receitaRealizadaDisponivel ? empresa.receitaRealizada : empresa.receitaPrevista)}
                     </p>
                   </div>
@@ -852,7 +854,7 @@ export default function Dashboard() {
                 emptyMessage="Nenhuma empresa ativa sem movimento neste período."
               >
                 {tabelas.empresasSemMovimento.map((empresa) => (
-                  <div key={empresa.empresaId} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                  <div key={empresa.empresaId} className="flex flex-col gap-2 rounded-lg bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="font-medium text-gray-900">{empresa.empresaNome}</p>
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
                       {empresa.status}

@@ -62,7 +62,7 @@ export default function Etapa3Profissionais({ dados, atualizarDados, proximaEtap
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Users className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Cadastro de Profissionais</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Cadastro de Profissionais</h2>
         </div>
         <p className="text-gray-600">
           Adicione os profissionais que farão atendimentos
@@ -72,7 +72,7 @@ export default function Etapa3Profissionais({ dados, atualizarDados, proximaEtap
       <form onSubmit={handleSubmit} className="space-y-4">
         {profissionais.map((prof, index) => (
           <div key={index} className="p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex items-center justify-between gap-4">
               <h3 className="font-semibold text-gray-900">
                 Profissional {index + 1}
               </h3>
@@ -80,7 +80,7 @@ export default function Etapa3Profissionais({ dados, atualizarDados, proximaEtap
                 <button
                   type="button"
                   onClick={() => removerProfissional(index)}
-                  className="text-red-600 hover:text-red-700"
+                  className="icon-action text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -139,12 +139,12 @@ export default function Etapa3Profissionais({ dados, atualizarDados, proximaEtap
           Adicionar Outro Profissional
         </Button>
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button type="button" onClick={etapaAnterior} variant="outline">
+        <div className="flex flex-col-reverse gap-3 pt-6 border-t sm:flex-row sm:justify-between">
+          <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa
@@ -157,7 +157,6 @@ export default function Etapa3Profissionais({ dados, atualizarDados, proximaEtap
     </div>
   )
 }
-
 
 
 

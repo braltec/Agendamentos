@@ -38,11 +38,26 @@ html {
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
   body {
     background: var(--color-bg);
     color: var(--color-text);
+    overflow-x: hidden;
     @apply antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  button,
+  [role='button'],
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
   }
 
   input,
@@ -212,17 +227,61 @@ html.dark .recharts-legend-item-text {
 }
 
 @layer components {
+  .page-shell {
+    @apply min-w-0 space-y-6;
+  }
+
+  .page-heading {
+    @apply flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold text-gray-900 sm:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm text-gray-600 sm:text-base;
+  }
+
+  .action-row {
+    @apply flex flex-col gap-2 sm:flex-row sm:items-center;
+  }
+
+  .table-scroll {
+    @apply w-full overflow-x-auto;
+  }
+
+  .table-scroll > table {
+    min-width: 42rem;
+  }
+
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4;
+  }
+
+  .modal-panel {
+    max-height: 92svh;
+    @apply w-full overflow-y-auto rounded-t-lg bg-[var(--color-surface)] shadow-xl sm:rounded-lg;
+  }
+
+  .icon-action {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors;
+  }
+
   /* Scrollbar personalizada */
-  .custom-scrollbar::-webkit-scrollbar {
+  .custom-scrollbar::-webkit-scrollbar,
+  .table-scroll::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-track {
+  .custom-scrollbar::-webkit-scrollbar-track,
+  .table-scroll::-webkit-scrollbar-track {
     @apply bg-gray-100 rounded;
   }
 
-  .custom-scrollbar::-webkit-scrollbar-thumb {
+  .custom-scrollbar::-webkit-scrollbar-thumb,
+  .table-scroll::-webkit-scrollbar-thumb {
     @apply bg-gray-300 rounded hover:bg-gray-400;
   }
 

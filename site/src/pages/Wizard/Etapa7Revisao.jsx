@@ -7,7 +7,7 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <CheckCircle2 className="w-6 h-6 text-green-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Revisão e Conclusão</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Revisão e Conclusão</h2>
         </div>
         <p className="text-gray-600">
           Revise as configurações antes de finalizar
@@ -21,7 +21,7 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
             <Clock className="w-5 h-5 text-blue-500" />
             <h3 className="font-semibold text-gray-900">Configurações de Agendamento</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 md:grid-cols-4">
             <div>
               <span className="text-gray-600">Antecedência:</span>
               <p className="font-medium">{dados.configuracoes?.empresa_cfg_anteced_minutos} min</p>
@@ -49,7 +49,7 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
           </div>
           <div className="space-y-2 text-sm">
             {dados.horarios.filter(h => h.ativo).map(horario => (
-              <div key={horario.dia_semana} className="flex justify-between">
+              <div key={horario.dia_semana} className="flex flex-col gap-1 sm:flex-row sm:justify-between">
                 <span className="text-gray-700">{horario.dia_nome}</span>
                 <span className="font-medium">{horario.hora_inicio} - {horario.hora_fim}</span>
               </div>
@@ -67,7 +67,7 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
           </div>
           <div className="space-y-2 text-sm">
             {dados.profissionais.map((prof, index) => (
-              <div key={index} className="flex justify-between items-center">
+              <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{prof.profissional_nome || prof.nome}</p>
                   {prof.especialidade && (
@@ -90,7 +90,7 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
           </div>
           <div className="space-y-2 text-sm">
             {dados.servicos.map((serv, index) => (
-              <div key={index} className="flex justify-between items-center">
+              <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium">{serv.servicos_nome || serv.nome}</p>
                   {serv.descricao && (
@@ -147,11 +147,11 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
         </p>
       </div>
 
-      <div className="flex justify-between pt-6 border-t mt-6">
-        <Button type="button" onClick={etapaAnterior} variant="outline">
+      <div className="mt-6 flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-between">
+        <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
           Voltar
         </Button>
-        <Button onClick={concluirWizard} disabled={loading} className="bg-green-600 hover:bg-green-700">
+        <Button onClick={concluirWizard} disabled={loading} className="w-full bg-green-600 hover:bg-green-700 sm:w-auto">
           {loading ? 'Finalizando...' : (
             <>
               <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -163,7 +163,6 @@ export default function Etapa7Revisao({ dados, etapaAnterior, concluirWizard, lo
     </div>
   )
 }
-
 
 
 

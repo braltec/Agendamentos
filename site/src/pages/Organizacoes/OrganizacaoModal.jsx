@@ -89,15 +89,17 @@ export default function OrganizacaoModal({ organizacao, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
+    <div className="modal-backdrop">
+      <Card className="modal-panel max-w-2xl p-4 sm:p-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">
             {organizacao ? 'Editar Organização' : 'Nova Organização'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="icon-action text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Fechar"
           >
             <X className="w-6 h-6" />
           </button>
@@ -204,7 +206,7 @@ export default function OrganizacaoModal({ organizacao, onClose }) {
               name="org_status"
               value={formData.org_status}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="min-h-11 w-full rounded-lg border border-gray-300 px-4 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary sm:text-sm"
             >
               <option value="ativa">Ativa</option>
               <option value="inativa">Inativa</option>
@@ -222,22 +224,23 @@ export default function OrganizacaoModal({ organizacao, onClose }) {
               value={formData.org_observacoes}
               onChange={handleChange}
               rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="min-h-28 w-full rounded-lg border border-gray-300 px-4 py-2 text-base focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary sm:text-sm"
               placeholder="Observações adicionais..."
             />
           </div>
 
           {/* Botões */}
-          <div className="flex justify-end gap-3 mt-6">
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="secondary"
               onClick={onClose}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading ? 'Salvando...' : organizacao ? 'Atualizar' : 'Criar'}
             </Button>
           </div>
@@ -246,6 +249,5 @@ export default function OrganizacaoModal({ organizacao, onClose }) {
     </div>
   )
 }
-
 
 

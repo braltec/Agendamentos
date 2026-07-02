@@ -33,7 +33,7 @@ export default function Etapa1Configuracoes({ dados, atualizarDados, proximaEtap
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Clock className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Configurações de Agendamento</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Configurações de Agendamento</h2>
         </div>
         <p className="text-gray-600">
           Configure os tempos padrão para os agendamentos da sua empresa
@@ -107,8 +107,8 @@ export default function Etapa1Configuracoes({ dados, atualizarDados, proximaEtap
           </div>
         </div>
 
-        <div className="flex justify-end pt-6 border-t">
-          <Button type="submit" disabled={loading}>
+        <div className="flex pt-6 border-t sm:justify-end">
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa
@@ -121,7 +121,6 @@ export default function Etapa1Configuracoes({ dados, atualizarDados, proximaEtap
     </div>
   )
 }
-
 
 
 

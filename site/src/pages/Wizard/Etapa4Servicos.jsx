@@ -57,7 +57,7 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <Briefcase className="w-6 h-6 text-blue-500" />
-          <h2 className="text-2xl font-bold text-gray-900">Cadastro de Serviços</h2>
+          <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Cadastro de Serviços</h2>
         </div>
         <p className="text-gray-600">
           Adicione os serviços oferecidos pela sua empresa
@@ -67,7 +67,7 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
       <form onSubmit={handleSubmit} className="space-y-4">
         {servicos.map((servico, index) => (
           <div key={index} className="p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4 flex items-center justify-between gap-4">
               <h3 className="font-semibold text-gray-900">
                 Serviço {index + 1}
               </h3>
@@ -75,7 +75,7 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
                 <button
                   type="button"
                   onClick={() => removerServico(index)}
-                  className="text-red-600 hover:text-red-700"
+                  className="icon-action text-red-600 hover:bg-red-50 hover:text-red-700"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -133,7 +133,7 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
                   onChange={(e) => handleChange(index, 'descricao', e.target.value)}
                   placeholder="Descrição do serviço..."
                   rows="2"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="min-h-24 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
                 />
               </div>
             </div>
@@ -150,12 +150,12 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
           Adicionar Outro Serviço
         </Button>
 
-        <div className="flex justify-between pt-6 border-t">
-          <Button type="button" onClick={etapaAnterior} variant="outline">
+        <div className="flex flex-col-reverse gap-3 pt-6 border-t sm:flex-row sm:justify-between">
+          <Button type="button" onClick={etapaAnterior} variant="outline" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? 'Salvando...' : (
               <>
                 Próxima Etapa
@@ -168,7 +168,6 @@ export default function Etapa4Servicos({ dados, atualizarDados, proximaEtapa, et
     </div>
   )
 }
-
 
 
 

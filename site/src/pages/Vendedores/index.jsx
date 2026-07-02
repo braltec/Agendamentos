@@ -90,8 +90,8 @@ export default function Vendedores() {
 
   if (!isRevenda || !isGestorRevenda) {
     return (
-      <div className="p-6">
-        <Card className="bg-red-50 border-red-200">
+      <div className="page-shell">
+        <Card className="border-red-200 bg-red-50 p-4">
           <div className="flex items-center gap-3 text-red-800">
             <X className="w-5 h-5" />
             <p>Acesso negado. Apenas Gestores de Revenda podem visualizar esta página.</p>
@@ -110,23 +110,23 @@ export default function Vendedores() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="page-shell">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="page-heading">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Vendedores</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="page-title">Vendedores</h1>
+          <p className="page-subtitle">
             {organizacao?.org_nome || 'Minha Organização'}
           </p>
         </div>
-        <Button onClick={abrirModalCriar} className="flex items-center gap-2">
+        <Button onClick={abrirModalCriar} className="w-full sm:w-auto">
           <Plus className="w-5 h-5" />
           Novo Vendedor
         </Button>
       </div>
 
       {/* Filtro */}
-      <Card>
+      <Card className="p-4">
         <Input
           placeholder="Buscar por nome, login ou email..."
           value={filtro}
@@ -136,8 +136,8 @@ export default function Vendedores() {
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-blue-50 border-blue-200">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-600 font-medium">Total de Usuários</p>
@@ -146,7 +146,7 @@ export default function Vendedores() {
             <UsersRound className="w-8 h-8 text-blue-600" />
           </div>
         </Card>
-        <Card className="bg-green-50 border-green-200">
+        <Card className="border-green-200 bg-green-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-600 font-medium">Gestores</p>
@@ -155,7 +155,7 @@ export default function Vendedores() {
             <UserCheck className="w-8 h-8 text-green-600" />
           </div>
         </Card>
-        <Card className="bg-purple-50 border-purple-200">
+        <Card className="border-purple-200 bg-purple-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Vendedores</p>
@@ -164,7 +164,7 @@ export default function Vendedores() {
             <TrendingUp className="w-8 h-8 text-purple-600" />
           </div>
         </Card>
-        <Card className="bg-orange-50 border-orange-200">
+        <Card className="border-orange-200 bg-orange-50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-orange-600 font-medium">Empresas Cadastradas</p>
@@ -181,11 +181,11 @@ export default function Vendedores() {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Gestores</h2>
           <div className="grid grid-cols-1 gap-4">
             {gestores.map((gestor) => (
-              <Card key={gestor.login_id} className="bg-green-50 border-green-200">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
+              <Card key={gestor.login_id} className="border-green-200 bg-green-50 p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h3 className="break-words text-lg font-semibold text-gray-900">
                         {gestor.nome}
                       </h3>
                       <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
@@ -203,11 +203,11 @@ export default function Vendedores() {
                       {gestor.total_empresas_cadastradas || 0}
                     </p>
                   </div>
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex w-full gap-2 sm:ml-4 sm:w-auto">
                     <Button
                       size="sm"
                       onClick={() => abrirModalEditar(gestor)}
-                      className="flex items-center gap-2"
+                      className="w-full sm:w-auto"
                     >
                       <Edit className="w-4 h-4" />
                       Editar
@@ -226,7 +226,7 @@ export default function Vendedores() {
           Vendedores ({vendedores.length})
         </h2>
         {vendedores.length === 0 ? (
-          <Card>
+          <Card className="p-4">
             <div className="text-center py-12">
               <UsersRound className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 text-lg">
@@ -242,10 +242,10 @@ export default function Vendedores() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {vendedores.map((vendedor) => (
-              <Card key={vendedor.login_id}>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <Card key={vendedor.login_id} className="p-4 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="mb-2 break-words text-lg font-semibold text-gray-900">
                       {vendedor.nome}
                     </h3>
                     <p className="text-sm text-gray-600">
@@ -254,7 +254,7 @@ export default function Vendedores() {
                     <p className="text-sm text-gray-600">
                       <span className="font-medium">Email:</span> {vendedor.email}
                     </p>
-                    <div className="mt-3 flex items-center gap-4">
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                       <div className="bg-blue-50 px-3 py-2 rounded">
                         <p className="text-xs text-blue-600 font-medium">Empresas cadastradas</p>
                         <p className="text-lg font-bold text-blue-900">
@@ -269,11 +269,11 @@ export default function Vendedores() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 ml-4 flex-col">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto lg:ml-4">
                     <Button
                       size="sm"
                       onClick={() => abrirModalEditar(vendedor)}
-                      className="flex items-center gap-2"
+                      className="w-full sm:w-auto"
                     >
                       <Edit className="w-4 h-4" />
                       Editar
@@ -282,7 +282,7 @@ export default function Vendedores() {
                       variant="secondary"
                       size="sm"
                       onClick={() => removerVendedor(vendedor.login_id, vendedor.nome)}
-                      className="flex items-center gap-2 text-red-600 hover:text-red-700"
+                      className="w-full text-red-600 hover:text-red-700 sm:w-auto"
                     >
                       <Trash2 className="w-4 h-4" />
                       Remover
@@ -306,6 +306,5 @@ export default function Vendedores() {
     </div>
   )
 }
-
 
 

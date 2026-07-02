@@ -82,21 +82,22 @@ export default function Wizard() {
   const EtapaComponente = ETAPAS[etapaAtual - 1].componente
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-[100svh] bg-gradient-to-br from-blue-50 to-indigo-100 px-3 py-4 sm:px-4 sm:py-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-6 text-center sm:mb-8">
+          <h1 className="mb-2 text-2xl font-bold text-gray-900 sm:text-3xl">
             Configuração Inicial
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm text-gray-600 sm:text-base">
             Vamos configurar sua empresa em {ETAPAS.length} etapas simples
           </p>
         </div>
 
         {/* Indicador de Progresso */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 rounded-lg bg-white p-3 shadow-sm sm:p-6">
+          <div className="table-scroll">
+          <div className="flex min-w-[42rem] items-start justify-between">
             {ETAPAS.map((etapa, index) => (
               <div key={etapa.numero} className="flex items-center flex-1">
                 <div className="flex flex-col items-center">
@@ -133,10 +134,11 @@ export default function Wizard() {
               </div>
             ))}
           </div>
+          </div>
         </div>
 
         {/* Conteúdo da Etapa */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="rounded-lg bg-white p-4 shadow-lg sm:p-8">
           <EtapaComponente
             dados={dados}
             atualizarDados={atualizarDados}
@@ -153,8 +155,6 @@ export default function Wizard() {
     </div>
   )
 }
-
-
 
 
 

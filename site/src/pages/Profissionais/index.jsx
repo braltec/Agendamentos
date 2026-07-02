@@ -2,10 +2,10 @@ import Card, { CardBody, CardHeader } from '../../components/ui/Card'
 
 export default function ProfissionaisPage() {
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Profissionais</h1>
-        <p className="text-gray-600 mt-1">Gerencie profissionais</p>
+        <h1 className="page-title">Profissionais</h1>
+        <p className="page-subtitle">Gerencie profissionais</p>
       </div>
 
       <Card>

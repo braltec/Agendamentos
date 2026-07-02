@@ -942,24 +942,24 @@ export default function Configuracoes() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="page-heading">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           {empresaIdFromUrl && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/empresas')}
-              className="flex items-center gap-2"
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="w-4 h-4" />
               Voltar
             </Button>
           )}
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
-            <p className="text-gray-600 mt-1">
+          <div className="min-w-0">
+            <h1 className="page-title">Configurações</h1>
+            <p className="page-subtitle break-words">
               {empresaIdFromUrl 
                 ? `Gerenciando configurações da empresa: ${empresaData?.empresa_nome || '...'}`
                 : 'Gerencie as configurações da sua empresa'
@@ -967,22 +967,22 @@ export default function Configuracoes() {
             </p>
           </div>
         </div>
-        <Settings className="w-8 h-8 text-gray-400" />
+        <Settings className="hidden h-8 w-8 shrink-0 text-gray-400 sm:block" />
       </div>
 
       {/* Seletor de Empresa (Super Admin) - só mostra se NÃO tem empresaId na URL */}
       {!empresaIdFromUrl && isSuperAdmin && empresas.length > 0 && (
         <Card className="p-4 bg-blue-50 border-blue-200">
-          <div className="flex items-center gap-4">
-            <Building2 className="w-5 h-5 text-blue-600" />
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            <div className="min-w-0 flex-1">
               <label className="block text-sm font-medium text-blue-900 mb-2">
                 Selecione a empresa para editar:
               </label>
               <select
                 value={empresaSelecionada || ''}
                 onChange={(e) => setEmpresaSelecionada(e.target.value)}
-                className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="min-h-11 w-full rounded-lg border border-blue-300 bg-white px-4 py-2 text-base focus:border-transparent focus:ring-2 focus:ring-blue-500 sm:text-sm"
               >
                 {empresas.map((emp) => (
                   <option key={emp.empresa_id} value={emp.empresa_id}>
@@ -1011,7 +1011,7 @@ export default function Configuracoes() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex gap-6 overflow-x-auto custom-scrollbar">
           {tabs.map((tab) => {
             const Icon = tab.icon
             return (
@@ -1019,7 +1019,7 @@ export default function Configuracoes() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                  flex min-h-11 shrink-0 items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm
                   ${activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1038,7 +1038,7 @@ export default function Configuracoes() {
       <div className="mt-6">
         {/* Tab: Configurações de Agendamento */}
         {activeTab === 'configuracoes' && (
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h2 className="text-xl font-semibold mb-6">Configurações de Agendamento</h2>
             
             <div className="space-y-6 max-w-2xl">
@@ -1101,7 +1101,7 @@ export default function Configuracoes() {
               {/* Seção de Prompt AI */}
               {isSuperAdmin && (
                 <div className="mt-8 pt-8 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="text-lg font-semibold">Configurações de Prompt AI</h3>
                     {!editandoPrompt ? (
                       <Button
@@ -1113,7 +1113,7 @@ export default function Configuracoes() {
                         Editar
                       </Button>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1147,7 +1147,7 @@ export default function Configuracoes() {
                         value={promptSelecionado}
                         onChange={(e) => setPromptSelecionado(e.target.value)}
                         disabled={!editandoPrompt}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        className={`min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm ${
                           !editandoPrompt ? 'bg-gray-50 cursor-not-allowed' : ''
                         }`}
                       >
@@ -1171,7 +1171,7 @@ export default function Configuracoes() {
                         value={versaoSelecionada}
                         onChange={(e) => setVersaoSelecionada(e.target.value)}
                         disabled={!editandoPrompt || !promptSelecionado}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        className={`min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm ${
                           !editandoPrompt || !promptSelecionado ? 'bg-gray-50 cursor-not-allowed' : ''
                         }`}
                       >
@@ -1209,7 +1209,7 @@ export default function Configuracoes() {
 
             {/* Horários de Funcionamento */}
             <div className="mt-8 pt-8 border-t">
-              <div className="flex justify-between items-center mb-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold">Horários de Funcionamento</h3>
                 {!editandoHorarios ? (
                   <Button 
@@ -1221,7 +1221,7 @@ export default function Configuracoes() {
                     Editar
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button 
                       onClick={cancelarEdicaoHorarios}
                       variant="outline"
@@ -1268,7 +1268,7 @@ export default function Configuracoes() {
                     
                     return (
                       <div key={diaIndex} className="border rounded-lg p-4 bg-white">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3">
                             <Clock className="w-5 h-5 text-blue-600" />
                             <span className="font-medium">{diaNome}</span>
@@ -1293,27 +1293,27 @@ export default function Configuracoes() {
                         {isAberto ? (
                           <div className="space-y-2 mt-3">
                             {horariosDia.map((horario) => (
-                              <div key={horario.periodo} className="flex items-center gap-2 ml-8">
+                              <div key={horario.periodo} className="ml-0 flex flex-col gap-2 sm:ml-8 sm:flex-row sm:items-center">
                                 {editandoHorarios ? (
                                   <>
-                                    <span className="text-xs text-gray-500 w-16">Período {horario.periodo}:</span>
+                                    <span className="text-xs text-gray-500 sm:w-16">Período {horario.periodo}:</span>
                                     <Input
                                       type="time"
                                       value={horario.horario_det_inicio?.substring(0, 5) || '08:00'}
                                       onChange={(e) => atualizarHorario(diaIndex, horario.periodo, 'horario_det_inicio', e.target.value + ':00')}
-                                      className="w-28"
+                                      className="w-full sm:w-28"
                                     />
                                     <span className="text-sm text-gray-600">às</span>
                                     <Input
                                       type="time"
                                       value={horario.horario_det_fim?.substring(0, 5) || '18:00'}
                                       onChange={(e) => atualizarHorario(diaIndex, horario.periodo, 'horario_det_fim', e.target.value + ':00')}
-                                      className="w-28"
+                                      className="w-full sm:w-28"
                                     />
                                     {horariosDia.length > 1 && (
                                       <button
                                         onClick={() => removerPeriodo(diaIndex, horario.periodo)}
-                                        className="text-red-600 hover:text-red-800"
+                                        className="icon-action text-red-600 hover:bg-red-50 hover:text-red-800"
                                         title="Remover período"
                                       >
                                         <X className="w-4 h-4" />
@@ -1323,7 +1323,7 @@ export default function Configuracoes() {
                                 ) : (
                                   <>
                                     {horariosDia.length > 1 && (
-                                      <span className="text-xs text-gray-500 w-16">Período {horario.periodo}:</span>
+                                      <span className="text-xs text-gray-500 sm:w-16">Período {horario.periodo}:</span>
                                     )}
                                     <span className="text-sm text-gray-600">
                                       {horario.horario_det_inicio?.substring(0, 5)} às {horario.horario_det_fim?.substring(0, 5)}
@@ -1336,21 +1336,21 @@ export default function Configuracoes() {
                             {editandoHorarios && (
                               <button
                                 onClick={() => adicionarPeriodo(diaIndex)}
-                                className="ml-8 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                className="ml-0 flex min-h-10 items-center gap-1 text-sm text-blue-600 hover:text-blue-800 sm:ml-8"
                               >
                                 + Adicionar período (ex: horário de almoço)
                               </button>
                             )}
                             
                             {!editandoHorarios && (
-                              <span className="ml-8 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded inline-block">
+                              <span className="ml-0 inline-block rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-800 sm:ml-8">
                                 Aberto
                               </span>
                             )}
                           </div>
                         ) : (
                           !editandoHorarios && (
-                            <span className="ml-8 px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded inline-block">
+                            <span className="ml-0 inline-block rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 sm:ml-8">
                               Fechado
                             </span>
                           )
@@ -1366,8 +1366,8 @@ export default function Configuracoes() {
 
         {/* Tab: WhatsApp */}
         {activeTab === 'whatsapp' && (
-          <Card className="p-6">
-            <div className="flex justify-between items-center mb-6">
+          <Card className="p-4 sm:p-6">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-semibold">Configuração WhatsApp</h2>
               {!editandoWhatsApp ? (
                 <Button 
@@ -1379,7 +1379,7 @@ export default function Configuracoes() {
                   Editar
                 </Button>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Button 
                     onClick={cancelarEdicaoWhatsApp}
                     variant="outline"
@@ -1464,7 +1464,7 @@ export default function Configuracoes() {
                   })}
                   placeholder="Adicione observações sobre esta instância..."
                   rows="4"
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${!editandoWhatsApp ? 'bg-gray-50' : ''}`}
+                  className={`min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm ${!editandoWhatsApp ? 'bg-gray-50' : ''}`}
                   disabled={!editandoWhatsApp}
                 />
               </div>
@@ -1474,7 +1474,7 @@ export default function Configuracoes() {
 
         {/* Tab: Profissionais */}
         {activeTab === 'profissionais' && (
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h2 className="text-xl font-semibold mb-6">Profissionais</h2>
             
             {profissionais.length === 0 ? (
@@ -1618,8 +1618,8 @@ export default function Configuracoes() {
 
         {/* Tab: Serviços */}
         {activeTab === 'servicos' && (
-          <Card className="p-6">
-            <div className="flex justify-between items-center mb-6">
+          <Card className="p-4 sm:p-6">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-semibold">Serviços</h2>
               <Button 
                 onClick={abrirModalNovoServico}
@@ -1823,8 +1823,8 @@ export default function Configuracoes() {
 
         {/* Tab: Empresa */}
         {activeTab === 'empresa' && (
-          <Card className="p-6">
-            <div className="flex justify-between items-center mb-6">
+          <Card className="p-4 sm:p-6">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-semibold">Dados da Empresa</h2>
               {!editandoEmpresa ? (
                 <Button 
@@ -1836,7 +1836,7 @@ export default function Configuracoes() {
                   Editar
                 </Button>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Button 
                     onClick={cancelarEdicaoEmpresa}
                     variant="outline"
@@ -2064,7 +2064,7 @@ export default function Configuracoes() {
                     })}
                     disabled={!editandoEmpresa}
                     rows="4"
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`min-h-28 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm ${
                       !editandoEmpresa ? 'bg-gray-50' : ''
                     }`}
                     placeholder="Adicione observações sobre a empresa..."
@@ -2078,12 +2078,12 @@ export default function Configuracoes() {
 
       {/* Tab: Usuários */}
       {activeTab === 'usuarios' && (
-        <Card className="p-6">
-          <div className="flex justify-between items-center mb-6">
+        <Card className="p-4 sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-semibold">Usuários</h2>
             <Button 
               onClick={abrirModalNovoUsuario}
-              className="flex items-center gap-2"
+              className="w-full sm:w-auto"
             >
               <Users className="w-4 h-4" />
               Novo Usuário
@@ -2094,7 +2094,7 @@ export default function Configuracoes() {
             <div className="text-center py-12">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 mb-4">Nenhum usuário cadastrado</p>
-              <Button onClick={abrirModalNovoUsuario}>
+              <Button onClick={abrirModalNovoUsuario} className="w-full sm:w-auto">
                 Adicionar Primeiro Usuário
               </Button>
             </div>
@@ -2105,8 +2105,8 @@ export default function Configuracoes() {
                 
                 return (
                   <Card key={usuario.login_id} className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Nome</label>
                           {estaEditando ? (
@@ -2180,7 +2180,7 @@ export default function Configuracoes() {
                                 )
                                 setUsuarios(novosUsuarios)
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
                             >
                               {niveisAcesso.map(nivel => (
                                 <option key={nivel.nivel_acesso_id} value={nivel.nivel_acesso_id}>
@@ -2194,7 +2194,7 @@ export default function Configuracoes() {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 ml-4">
+                      <div className="flex flex-row flex-wrap gap-2 lg:ml-4 lg:flex-col xl:flex-row">
                         {estaEditando ? (
                           <>
                             <Button
@@ -2255,13 +2255,15 @@ export default function Configuracoes() {
 
       {/* Modal: Novo Usuário */}
       {modalNovoUsuario && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Novo Usuário</h3>
+        <div className="modal-backdrop">
+          <div className="modal-panel max-w-lg p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold sm:text-xl">Novo Usuário</h3>
               <button 
+                type="button"
                 onClick={() => setModalNovoUsuario(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="icon-action text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2338,7 +2340,7 @@ export default function Configuracoes() {
                     ...novoUsuario,
                     nivel_acesso_id: e.target.value
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">Selecione...</option>
                   {niveisAcesso.map(nivel => (
@@ -2350,7 +2352,7 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
               <Button
                 onClick={() => setModalNovoUsuario(false)}
                 variant="outline"
@@ -2379,13 +2381,15 @@ export default function Configuracoes() {
 
       {/* Modal: Alterar Senha */}
       {modalAlterarSenha && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Alterar Senha</h3>
+        <div className="modal-backdrop">
+          <div className="modal-panel max-w-md p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold sm:text-xl">Alterar Senha</h3>
               <button 
+                type="button"
                 onClick={() => setModalAlterarSenha(null)}
-                className="text-gray-500 hover:text-gray-700"
+                className="icon-action text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2421,7 +2425,7 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
               <Button
                 onClick={() => setModalAlterarSenha(null)}
                 variant="outline"
@@ -2450,13 +2454,15 @@ export default function Configuracoes() {
 
       {/* Modal: Novo Serviço */}
       {modalNovoServico && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Novo Serviço</h3>
+        <div className="modal-backdrop">
+          <div className="modal-panel max-w-lg p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold sm:text-xl">Novo Serviço</h3>
               <button 
+                type="button"
                 onClick={fecharModalNovoServico}
-                className="text-gray-500 hover:text-gray-700"
+                className="icon-action text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2562,7 +2568,7 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-6">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
               <Button
                 onClick={fecharModalNovoServico}
                 variant="outline"

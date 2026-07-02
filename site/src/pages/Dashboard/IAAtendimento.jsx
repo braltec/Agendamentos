@@ -227,7 +227,7 @@ function TableCard({ title, description, badge, loading, isEmpty, emptyMessage, 
         ) : isEmpty ? (
           <EmptyState>{emptyMessage}</EmptyState>
         ) : (
-          <div className="overflow-x-auto">{children}</div>
+          <div className="table-scroll">{children}</div>
         )}
       </CardBody>
     </Card>
