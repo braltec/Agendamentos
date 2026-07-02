@@ -28,6 +28,9 @@ jobs:
   publish:
     name: Build and publish
     runs-on: ubuntu-latest
+    env:
+      API_IMAGE: ghcr.io/braltec/airesolve-api
+      FRONTEND_IMAGE: ghcr.io/braltec/airesolve-frontend
 
     steps:
       - name: Checkout
@@ -37,8 +40,6 @@ jobs:
         id: vars
         shell: bash
         run: |
-          image_owner="${GITHUB_REPOSITORY_OWNER,,}"
-
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             image_tag="${{ inputs.image_tag }}"
             publish_latest="${{ inputs.publish_latest }}"
@@ -54,7 +55,6 @@ jobs:
             exit 1
           fi
 
-          echo "image_owner=$image_owner" >> "$GITHUB_OUTPUT"
           echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
           echo "publish_latest=$publish_latest" >> "$GITHUB_OUTPUT"
           echo "vite_api_url=$vite_api_url" >> "$GITHUB_OUTPUT"
@@ -73,7 +73,7 @@ jobs:
         id: meta-api
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.vars.outputs.image_owner }}/airesolve-api
+          images: ${{ env.API_IMAGE }}
           tags: |
             type=raw,value=${{ steps.vars.outputs.image_tag }}
             type=raw,value=latest,enable=${{ steps.vars.outputs.publish_latest == 'true' }}
@@ -82,7 +82,7 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.vars.outputs.image_owner }}/airesolve-frontend
+          images: ${{ env.FRONTEND_IMAGE }}
           tags: |
             type=raw,value=${{ steps.vars.outputs.image_tag }}
             type=raw,value=latest,enable=${{ steps.vars.outputs.publish_latest == 'true' }}

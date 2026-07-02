@@ -14,21 +14,16 @@ Este material prepara somente a publicacao da aplicacao. Nao cria PostgreSQL, Re
 
 ## Imagens de producao
 
-O `docker-compose.prod.yml` usa somente `image:` e nao depende de `build:`. As imagens esperadas seguem este padrao:
+O `docker-compose.prod.yml` usa somente `image:` e nao depende de `build:`. Antes de criar ou atualizar a stack no Portainer, publique as duas imagens no GitHub Container Registry. Se elas nao existirem no GHCR, o Swarm falhara com erro parecido com `No such image`.
+
+As imagens usadas pela stack sao exatamente:
 
 ```text
-ghcr.io/USUARIO_OU_ORG/airesolve-api:v1.0.0
-ghcr.io/USUARIO_OU_ORG/airesolve-frontend:v1.0.0
+ghcr.io/braltec/airesolve-api:v1.0.0
+ghcr.io/braltec/airesolve-frontend:v1.0.0
 ```
 
-No Portainer, configure:
-
-```env
-GHCR_OWNER=usuario-ou-org
-IMAGE_TAG=v1.0.0
-```
-
-Use o owner do GitHub/GHCR em minusculo. Para uma nova versao, publique uma nova tag, por exemplo `v1.0.1`, e altere `IMAGE_TAG` no Portainer.
+O owner `braltec` e os nomes das imagens estao em minusculo, como exigido pelo formato de imagens Docker/GHCR.
 
 ## Publicar imagens pelo GitHub Actions
 
@@ -41,14 +36,17 @@ packages: write
 
 Ele publica:
 
-- `ghcr.io/<owner>/airesolve-api:<tag>`
-- `ghcr.io/<owner>/airesolve-frontend:<tag>`
-- `latest`, quando habilitado
+- `ghcr.io/braltec/airesolve-api:v1.0.0`
+- `ghcr.io/braltec/airesolve-api:latest`
+- `ghcr.io/braltec/airesolve-frontend:v1.0.0`
+- `ghcr.io/braltec/airesolve-frontend:latest`
 
 Formas de executar:
 
-1. Criar e enviar uma tag Git, por exemplo `v1.0.0`. O workflow usa essa tag e tambem publica `latest`.
-2. Executar manualmente em `Actions > Publish Docker images`, informando `image_tag`, `publish_latest` e `vite_api_url`.
+1. Executar manualmente em `Actions > Publish Docker images`, usando `image_tag=v1.0.0`, `publish_latest=true` e `vite_api_url=/api`.
+2. Criar e enviar uma tag Git `v1.0.0`. O workflow usa essa tag e tambem publica `latest`.
+
+Depois que o workflow terminar com sucesso, confirme em `Packages` no GitHub que as duas imagens existem antes de rodar a stack no Portainer.
 
 Para publicacao no mesmo dominio via Nginx desta stack, mantenha:
 
@@ -63,14 +61,14 @@ Essa URL e gravada no build do frontend. Se ela mudar, gere uma nova imagem do f
 Se preferir publicar fora do GitHub Actions:
 
 ```bash
-docker build -f Dockerfile.api -t ghcr.io/USUARIO_OU_ORG/airesolve-api:v1.0.0 .
-docker build -f Dockerfile.frontend --build-arg VITE_API_URL=/api -t ghcr.io/USUARIO_OU_ORG/airesolve-frontend:v1.0.0 .
+docker build -f Dockerfile.api -t ghcr.io/braltec/airesolve-api:v1.0.0 .
+docker build -f Dockerfile.frontend --build-arg VITE_API_URL=/api -t ghcr.io/braltec/airesolve-frontend:v1.0.0 .
 
-docker push ghcr.io/USUARIO_OU_ORG/airesolve-api:v1.0.0
-docker push ghcr.io/USUARIO_OU_ORG/airesolve-frontend:v1.0.0
+docker push ghcr.io/braltec/airesolve-api:v1.0.0
+docker push ghcr.io/braltec/airesolve-frontend:v1.0.0
 ```
 
-Substitua `USUARIO_OU_ORG` pelo owner real em minusculo. Esses comandos nao executam migrations.
+Esses comandos nao executam migrations.
 
 ## Banco PostgreSQL existente
 
@@ -119,21 +117,11 @@ O PostgreSQL existente deve estar conectado a essa rede. A stack nao publica por
 Configure estas variaveis na stack:
 
 ```env
-GHCR_OWNER=usuario-ou-org
-IMAGE_TAG=v1.0.0
-
 NODE_ENV=production
 PORT=5000
 DATABASE_URL=postgresql://USUARIO:SENHA@postgres_postgres:5432/NOME_DO_BANCO
 JWT_SECRET=troque_por_uma_chave_forte_com_mais_de_32_caracteres
 CORS_ORIGIN=https://seu-dominio.com.br
-```
-
-O `docker-compose.prod.yml` monta as imagens assim:
-
-```text
-ghcr.io/${GHCR_OWNER}/airesolve-api:${IMAGE_TAG}
-ghcr.io/${GHCR_OWNER}/airesolve-frontend:${IMAGE_TAG}
 ```
 
 O frontend acessa a API por `/api`, e o Nginx encaminha para `api:5000` dentro da rede `network_swarm_public`.
@@ -144,10 +132,11 @@ Se o pacote GHCR estiver privado, configure credenciais do GitHub Container Regi
 
 1. Acesse `Stacks` no ambiente Swarm.
 2. Crie uma nova stack usando o arquivo `docker-compose.prod.yml`.
-3. Configure as variaveis `GHCR_OWNER`, `IMAGE_TAG`, `DATABASE_URL`, `JWT_SECRET` e `CORS_ORIGIN`.
-4. Confirme que `DATABASE_URL` usa `postgres_postgres` como host.
-5. Confirme que a rede externa `network_swarm_public` existe.
-6. Aponte o proxy/reverse proxy externo para o servico `frontend` na porta interna `8080`.
+3. Confirme que as imagens `ghcr.io/braltec/airesolve-api:v1.0.0` e `ghcr.io/braltec/airesolve-frontend:v1.0.0` ja existem no GHCR.
+4. Configure as variaveis `DATABASE_URL`, `JWT_SECRET` e `CORS_ORIGIN`.
+5. Confirme que `DATABASE_URL` usa `postgres_postgres` como host.
+6. Confirme que a rede externa `network_swarm_public` existe.
+7. Aponte o proxy/reverse proxy externo para o servico `frontend` na porta interna `8080`.
 
 O compose nao usa `container_name`, nao cria servicos extras, nao expoe portas diretamente com `ports` e nao cria banco.
 
@@ -189,8 +178,8 @@ A stack esta configurada com `update_config.failure_action: rollback`. Se uma at
 Rollback recomendado por tag:
 
 1. Mantenha a tag anterior publicada no GHCR, por exemplo `v0.9.9`.
-2. No Portainer, altere `IMAGE_TAG=v0.9.9`.
-3. Redeploy a stack.
+2. Altere as linhas `image:` no `docker-compose.prod.yml` para a tag anterior.
+3. Atualize a stack no Portainer.
 4. Valide `/health`, `/health/db` e logs.
 
 Rollback manual via CLI:
