@@ -1,63 +1,30 @@
 name: Publish Docker images
 
 on:
-  workflow_dispatch:
-    inputs:
-      image_tag:
-        description: Docker image tag to publish
-        required: true
-        default: v1.0.0
-      publish_latest:
-        description: Also publish the latest tag
-        required: true
-        type: boolean
-        default: true
-      vite_api_url:
-        description: API URL baked into the Vite frontend build
-        required: true
-        default: /api
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
 
+env:
+  API_IMAGE: ghcr.io/braltec/airesolve-api
+  FRONTEND_IMAGE: ghcr.io/braltec/airesolve-frontend
+  IMAGE_TAG: v1.0.0
+  VITE_API_URL: /api
+
 jobs:
   publish:
-    name: Build and publish
+    name: Build and publish Docker images
     runs-on: ubuntu-latest
-    env:
-      API_IMAGE: ghcr.io/braltec/airesolve-api
-      FRONTEND_IMAGE: ghcr.io/braltec/airesolve-frontend
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Resolve image settings
-        id: vars
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            image_tag="${{ inputs.image_tag }}"
-            publish_latest="${{ inputs.publish_latest }}"
-            vite_api_url="${{ inputs.vite_api_url }}"
-          else
-            image_tag="${GITHUB_REF_NAME}"
-            publish_latest="true"
-            vite_api_url="/api"
-          fi
-
-          if [[ ! "$image_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "image_tag must use semantic version format like v1.0.0" >&2
-            exit 1
-          fi
-
-          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
-          echo "publish_latest=$publish_latest" >> "$GITHUB_OUTPUT"
-          echo "vite_api_url=$vite_api_url" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,32 +36,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: API image metadata
-        id: meta-api
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.API_IMAGE }}
-          tags: |
-            type=raw,value=${{ steps.vars.outputs.image_tag }}
-            type=raw,value=latest,enable=${{ steps.vars.outputs.publish_latest == 'true' }}
-
-      - name: Frontend image metadata
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.FRONTEND_IMAGE }}
-          tags: |
-            type=raw,value=${{ steps.vars.outputs.image_tag }}
-            type=raw,value=latest,enable=${{ steps.vars.outputs.publish_latest == 'true' }}
-
       - name: Build and publish API image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.api
           push: true
-          tags: ${{ steps.meta-api.outputs.tags }}
-          labels: ${{ steps.meta-api.outputs.labels }}
+          tags: |
+            ${{ env.API_IMAGE }}:${{ env.IMAGE_TAG }}
+            ${{ env.API_IMAGE }}:latest
 
       - name: Build and publish frontend image
         uses: docker/build-push-action@v6
@@ -103,6 +53,7 @@ jobs:
           file: Dockerfile.frontend
           push: true
           build-args: |
-            VITE_API_URL=${{ steps.vars.outputs.vite_api_url }}
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+            VITE_API_URL=${{ env.VITE_API_URL }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+            ${{ env.FRONTEND_IMAGE }}:latest
