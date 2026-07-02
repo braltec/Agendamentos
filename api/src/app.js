@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
+import pool from './config/database.js'
 import { errorMiddleware } from './middleware/error.middleware.js'
 
 // Importar rotas
@@ -52,6 +53,24 @@ app.use(express.urlencoded({ extended: true, limit: bodyLimit }))
 // Rota de health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+app.get('/health/db', async (req, res) => {
+  try {
+    await pool.query('SELECT 1')
+
+    res.json({
+      status: 'ok',
+      database: 'ok',
+      timestamp: new Date().toISOString(),
+    })
+  } catch {
+    res.status(503).json({
+      status: 'error',
+      database: 'unavailable',
+      timestamp: new Date().toISOString(),
+    })
+  }
 })
 
 // Rotas da API

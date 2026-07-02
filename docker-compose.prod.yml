@@ -1,42 +1,25 @@
+version: "3.8"
+
 services:
-  agendamentos-api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-    image: agendamentos-api:prod
-    container_name: agendamentos-api
+  api:
+    image: ghcr.io/${GHCR_OWNER:?Informe GHCR_OWNER do GitHub Container Registry}/airesolve-api:${IMAGE_TAG:-v1.0.0}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 5000
       TRUST_PROXY: ${TRUST_PROXY:-1}
       BODY_LIMIT: ${BODY_LIMIT:-1mb}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      DATABASE_URL: ${DATABASE_URL:-}
-      DB_HOST: ${DB_HOST:-}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-}
-      DB_USER: ${DB_USER:-}
-      DB_PASSWORD: ${DB_PASSWORD:-}
+      DATABASE_URL: ${DATABASE_URL:?Informe DATABASE_URL usando o host postgres_postgres}
       DB_SSL: ${DB_SSL:-false}
       DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-true}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obrigatório}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN obrigatório}
-      LOGIN_RATE_LIMIT_WINDOW_MS: ${LOGIN_RATE_LIMIT_WINDOW_MS:-900000}
-      LOGIN_RATE_LIMIT_IP_MAX: ${LOGIN_RATE_LIMIT_IP_MAX:-30}
-      LOGIN_RATE_LIMIT_EMAIL_MAX: ${LOGIN_RATE_LIMIT_EMAIL_MAX:-10}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
-      REDIS_URL: ${REDIS_URL:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     expose:
       - "5000"
     networks:
-      - agendamentos-internal
+      - network_swarm_public
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -55,26 +38,27 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        window: 120s
+      update_config:
+        order: start-first
+        parallelism: 1
+        failure_action: rollback
+      rollback_config:
+        order: stop-first
+        parallelism: 1
 
-  agendamentos-site:
-    build:
-      context: .
-      dockerfile: site/Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
-        VITE_APP_NAME: ${VITE_APP_NAME:-Sistema de Agendamento}
-        VITE_APP_VERSION: ${VITE_APP_VERSION:-1.0.0}
-    image: agendamentos-site:prod
-    container_name: agendamentos-site
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:?Informe GHCR_OWNER do GitHub Container Registry}/airesolve-frontend:${IMAGE_TAG:-v1.0.0}
     restart: unless-stopped
-    depends_on:
-      agendamentos-api:
-        condition: service_healthy
     expose:
       - "8080"
     networks:
-      - agendamentos-internal
-      - proxy
+      - network_swarm_public
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -85,7 +69,7 @@ services:
       - /var/cache/nginx:size=64m,mode=1777
       - /var/run:size=16m,mode=1777
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/nginx-health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -95,10 +79,21 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        window: 120s
+      update_config:
+        order: start-first
+        parallelism: 1
+        failure_action: rollback
+      rollback_config:
+        order: stop-first
+        parallelism: 1
 
 networks:
-  agendamentos-internal:
-    driver: bridge
-  proxy:
+  network_swarm_public:
     external: true
-    name: ${PROXY_NETWORK:-proxy}
+    name: network_swarm_public

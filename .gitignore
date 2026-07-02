@@ -17,7 +17,14 @@ conecta_db.conf
 .git-local/
 
 backup_*
+backups/
+dumps/
+*.bak
 *.backup
 *.dump
+*.sql
+*.psql
+*.sql.gz
+estrutura_banco.sql
 restaurar_*.sql
 api/comparacao-empresas.txt
