@@ -14,7 +14,7 @@ services:
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
-      CORS_ORIGIN: ${CORS_ORIGIN}
+      CORS_ORIGIN: https://painel.airesolve.com.br
     networks:
       - network_swarm_public
     cap_drop:
@@ -35,6 +35,14 @@ services:
         max-file: "3"
     deploy:
       replicas: 1
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=network_swarm_public
+        - traefik.http.routers.airesolve-api.rule=Host(`api.airesolve.com.br`)
+        - traefik.http.routers.airesolve-api.entrypoints=websecure
+        - traefik.http.routers.airesolve-api.tls=true
+        - traefik.http.routers.airesolve-api.service=airesolve-api
+        - traefik.http.services.airesolve-api.loadbalancer.server.port=5000
       restart_policy:
         condition: any
         delay: 5s
@@ -70,6 +78,14 @@ services:
         max-file: "3"
     deploy:
       replicas: 1
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=network_swarm_public
+        - traefik.http.routers.airesolve-painel.rule=Host(`painel.airesolve.com.br`)
+        - traefik.http.routers.airesolve-painel.entrypoints=websecure
+        - traefik.http.routers.airesolve-painel.tls=true
+        - traefik.http.routers.airesolve-painel.service=airesolve-painel
+        - traefik.http.services.airesolve-painel.loadbalancer.server.port=8080
       restart_policy:
         condition: any
         delay: 5s

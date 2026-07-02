@@ -15,7 +15,7 @@ env:
   API_IMAGE: ghcr.io/braltec/airesolve-api
   FRONTEND_IMAGE: ghcr.io/braltec/airesolve-frontend
   IMAGE_TAG: v1.0.0
-  VITE_API_URL: /api
+  VITE_API_URL: https://api.airesolve.com.br
 
 jobs:
   publish:
