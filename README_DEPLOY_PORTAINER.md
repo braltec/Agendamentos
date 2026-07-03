@@ -69,13 +69,13 @@ Formas de executar:
 
 Depois que o workflow terminar com sucesso, confirme em `Packages` no GitHub que as duas imagens existem antes de rodar a stack no Portainer.
 
-O frontend usa Vite, entao `VITE_API_URL` e gravado em tempo de build. Para esta stack, o workflow publica o frontend usando:
+O frontend usa Vite, entao `VITE_API_URL` e gravado em tempo de build. Para esta stack, o workflow publica o frontend usando o proxy interno do Nginx:
 
 ```env
-VITE_API_URL=https://api.airesolve.com.br
+VITE_API_URL=/api
 ```
 
-Se essa URL mudar, gere e publique uma nova imagem do frontend antes de atualizar a stack no Portainer.
+Assim, o navegador chama `https://painel.airesolve.com.br/api/...` e o Nginx do frontend encaminha para o servico interno da API. Isso evita CORS e dependencia do certificado do subdominio da API para o painel. Se essa URL mudar, gere e publique uma nova imagem do frontend antes de atualizar a stack no Portainer.
 
 ## Publicar imagens manualmente
 
@@ -83,7 +83,7 @@ Se preferir publicar fora do GitHub Actions:
 
 ```bash
 docker build -f Dockerfile.api -t ghcr.io/braltec/airesolve-api:v1.0.0 .
-docker build -f Dockerfile.frontend --build-arg VITE_API_URL=https://api.airesolve.com.br -t ghcr.io/braltec/airesolve-frontend:v1.0.0 .
+docker build -f Dockerfile.frontend --build-arg VITE_API_URL=/api -t ghcr.io/braltec/airesolve-frontend:v1.0.0 .
 
 docker push ghcr.io/braltec/airesolve-api:v1.0.0
 docker push ghcr.io/braltec/airesolve-frontend:v1.0.0
@@ -145,7 +145,7 @@ JWT_SECRET=troque_por_uma_chave_forte_com_mais_de_32_caracteres
 CORS_ORIGIN=https://painel.airesolve.com.br
 ```
 
-A API recebe `CORS_ORIGIN=https://painel.airesolve.com.br`. O frontend acessa a API por `https://api.airesolve.com.br`, valor definido em `VITE_API_URL` no build da imagem. Se `VITE_API_URL` mudar, republique a imagem do frontend antes de atualizar a stack.
+A API recebe `CORS_ORIGIN=https://painel.airesolve.com.br`. O frontend acessa a API por `/api`, valor definido em `VITE_API_URL` no build da imagem. O Nginx da imagem frontend encaminha `/api/` para o servico interno `api:5000`. Se `VITE_API_URL` mudar, republique a imagem do frontend antes de atualizar a stack.
 
 Se o pacote GHCR estiver privado, configure credenciais do GitHub Container Registry no Portainer antes de criar a stack.
 
@@ -214,7 +214,7 @@ docker service rollback NOME_DA_STACK_frontend
 ## Observacoes de seguranca
 
 - Somente a API recebe `DATABASE_URL`.
-- O frontend acessa a API por `https://api.airesolve.com.br`.
+- O frontend acessa a API por `/api`, usando o proxy interno do Nginx da imagem frontend.
 - O banco nao e publicado na internet por esta stack.
 - Segredos reais devem ficar no Portainer ou em arquivo local nao versionado.
 - Nao rode migrations durante esta preparacao.
